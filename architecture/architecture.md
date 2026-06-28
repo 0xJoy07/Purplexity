@@ -1,6 +1,6 @@
 # Purplexity — System Architecture
 
-> A Perplexity clone built with React, Bun, Tavily, Supabase, and a streaming LLM API.
+> A Perplexity clone built with Next.js, Bun, Tavily, Supabase, and a streaming LLM API.
 
 ---
 
@@ -30,7 +30,7 @@ User Query → Web Search → Context Engineering → LLM → Streamed Response
 
 ## Data Flow
 
-1. User types a query in the React frontend and submits.
+1. User types a query in the Next.js frontend and submits.
 2. Frontend fires `POST /conversation` to the Bun backend.
 3. Backend validates the request via **JWT auth middleware** (Supabase-issued token).
 4. Request is handed to the **Agent Orchestration layer**:
@@ -52,12 +52,12 @@ User Query → Web Search → Context Engineering → LLM → Streamed Response
 
 | Tool | Purpose |
 |---|---|
-| React + TypeScript | UI framework |
-| Vite | Build tool |
+| Next.js 14 + TypeScript | App Router, SSR, API Routes, file-based routing |
 | TailwindCSS | Utility-first styling |
 | shadcn/ui | Component library |
-| `EventSource` / SSE | Consuming the streamed LLM response |
+| `useChat` / SSE | Consuming the streamed LLM response (Vercel AI SDK hook) |
 | Supabase JS SDK | Auth token management + direct DB reads |
+| Next.js Route Handlers | `/api/*` endpoints — optionally replaces separate Bun server |
 
 ### Backend
 
@@ -177,13 +177,68 @@ UPSTASH_REDIS_REST_TOKEN=...
 PORT=3000
 ```
 
-### Frontend (Vite)
+### Frontend (Next.js)
 
 ```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_API_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
 ```
+
+---
+
+## Project Structure
+
+```
+purplexity/
+├── apps/
+│   ├── web/                              # Next.js 14 frontend (App Router)
+│   │   ├── app/
+│   │   │   ├── layout.tsx                # Root layout + Supabase provider
+│   │   │   ├── page.tsx                  # Home / search landing
+│   │   │   ├── search/
+│   │   │   │   └── [id]/page.tsx         # Conversation page
+│   │   │   └── api/
+│   │   │       ├── conversation/
+│   │   │       │   └── route.ts          # POST /api/conversation (SSE stream)
+│   │   │       └── history/
+│   │   │           └── route.ts          # GET /api/history
+│   │   ├── components/
+│   │   │   ├── SearchInput.tsx
+│   │   │   ├── ChatMessage.tsx
+│   │   │   ├── SourceCard.tsx
+│   │   │   ├── FollowUpChips.tsx
+│   │   │   └── Sidebar.tsx
+│   │   ├── hooks/
+│   │   │   ├── useStream.ts
+│   │   │   └── useConversation.ts
+│   │   ├── lib/
+│   │   │   └── supabase.ts               # Supabase client (browser + server)
+│   │   └── next.config.ts
+│   │
+│   └── server/                           # Bun backend (if kept separate)
+│       ├── src/
+│       │   ├── routes/
+│       │   │   ├── conversation.ts
+│       │   │   └── history.ts
+│       │   ├── agent/
+│       │   │   ├── rewrite.ts
+│       │   │   ├── search.ts
+│       │   │   └── context.ts
+│       │   ├── middleware/
+│       │   │   └── auth.ts
+│       │   ├── db/
+│       │   │   └── supabase.ts
+│       │   └── index.ts
+│       └── package.json
+│
+├── packages/
+│   └── types/                            # Shared TypeScript types
+│       └── index.ts
+│
+└── package.json                          # Monorepo root (Bun workspaces)
+```
+
 ---
 
 ## API Endpoints
