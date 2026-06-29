@@ -39,8 +39,8 @@ app.post("/purplexity_ask" , async (req,res) => {
     const completion = await openrouter.chat.completions.create({
         model: "openrouter/free",
         messages: [{ 
-            role: 'user',
-            content: SYSTEM_PROMPT
+            role: 'assistant',
+            content: SYSTEM_PROMPT,
          }],
     });
 
