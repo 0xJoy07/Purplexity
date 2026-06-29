@@ -40,7 +40,7 @@ app.post("/purplexity_ask" , async (req,res) => {
         model: "openrouter/free",
         messages: [{ 
             role: 'user',
-            content: "{SYSTEM_PROMPT}"
+            content: SYSTEM_PROMPT
          }],
     });
 
