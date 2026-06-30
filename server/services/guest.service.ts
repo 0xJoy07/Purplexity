@@ -35,6 +35,7 @@ export async function createGuestUser(options: GuestUserOptions = {}) {
       name: `Guest User ${guestId.split("_")[1]}`,
       profileImage: null,
       dailyTokenLimit,
+      tokenLimit: dailyTokenLimit,
     },
   });
 
@@ -66,6 +67,7 @@ export async function createTestUser(options: GuestUserOptions = {}) {
       name: `Test User ${testId.split("_")[1]}`,
       profileImage: null,
       dailyTokenLimit,
+      tokenLimit: dailyTokenLimit,
     },
   });
 

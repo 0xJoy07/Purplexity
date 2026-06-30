@@ -126,9 +126,21 @@ exports.Prisma.UserScalarFieldEnum = {
   provider: 'provider',
   name: 'name',
   profileImage: 'profileImage',
+  passwordHash: 'passwordHash',
+  emailVerified: 'emailVerified',
+  tokenLimit: 'tokenLimit',
+  tokensUsed: 'tokensUsed',
   dailyTokenLimit: 'dailyTokenLimit',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
+};
+
+exports.Prisma.RevokedTokenScalarFieldEnum = {
+  id: 'id',
+  jti: 'jti',
+  userId: 'userId',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.ConversationScalarFieldEnum = {
@@ -200,7 +212,8 @@ exports.Prisma.JsonNullValueFilter = {
 };
 exports.AuthProvider = exports.$Enums.AuthProvider = {
   Github: 'Github',
-  Google: 'Google'
+  Google: 'Google',
+  Credentials: 'Credentials'
 };
 
 exports.MessageRole = exports.$Enums.MessageRole = {
@@ -211,6 +224,7 @@ exports.MessageRole = exports.$Enums.MessageRole = {
 
 exports.Prisma.ModelName = {
   User: 'User',
+  RevokedToken: 'RevokedToken',
   Conversation: 'Conversation',
   Message: 'Message',
   Query: 'Query',

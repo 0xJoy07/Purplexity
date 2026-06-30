@@ -146,7 +146,7 @@ export async function generateConversationTitle(
 ) {
   // Take first 50 characters or until first newline
   const title =
-    firstUserMessage.split("\n")[0].substring(0, 50) +
+    (firstUserMessage.split("\n")[0] ?? "").substring(0, 50) +
     (firstUserMessage.length > 50 ? "..." : "");
 
   return await updateConversationTitle(conversationId, title);

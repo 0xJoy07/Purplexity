@@ -26,7 +26,7 @@ export interface TokenUsageInfo {
   canMakeRequest: boolean;
 }
 
-// Get or create today's token usage for a user
+// Return the account's lifetime allowance. Daily rows remain as analytics only.
 export async function getTodayTokenUsage(userId: string): Promise<TokenUsageInfo> {
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Start of day
@@ -34,7 +34,7 @@ export async function getTodayTokenUsage(userId: string): Promise<TokenUsageInfo
   // Get user to check daily limit
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { dailyTokenLimit: true },
+    select: { tokenLimit: true, tokensUsed: true },
   });
 
   if (!user) {
@@ -58,15 +58,15 @@ export async function getTodayTokenUsage(userId: string): Promise<TokenUsageInfo
     },
   });
 
-  const tokensRemaining = Math.max(0, user.dailyTokenLimit - tokenUsage.tokensUsed);
+  const tokensRemaining = Math.max(0, user.tokenLimit - user.tokensUsed);
   const canMakeRequest = tokensRemaining > 0;
 
   return {
     userId,
     date: today,
-    tokensUsed: tokenUsage.tokensUsed,
+    tokensUsed: user.tokensUsed,
     tokensRemaining,
-    dailyLimit: user.dailyTokenLimit,
+    dailyLimit: user.tokenLimit,
     requestCount: tokenUsage.requestCount,
     canMakeRequest,
   };
@@ -80,8 +80,8 @@ export async function trackTokenUsage(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Update token usage
-  const tokenUsage = await prisma.tokenUsage.upsert({
+  const [tokenUsage, user] = await prisma.$transaction([
+    prisma.tokenUsage.upsert({
     where: {
       userId_date: {
         userId,
@@ -102,26 +102,22 @@ export async function trackTokenUsage(
       tokensUsed,
       requestCount: 1,
     },
-  });
-
-  // Get user's daily limit
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { dailyTokenLimit: true },
-  });
+    }),
+    prisma.user.update({ where: { id: userId }, data: { tokensUsed: { increment: tokensUsed } }, select: { tokenLimit: true, tokensUsed: true } }),
+  ]);
 
   if (!user) {
     throw new Error("User not found");
   }
 
-  const tokensRemaining = Math.max(0, user.dailyTokenLimit - tokenUsage.tokensUsed);
+  const tokensRemaining = Math.max(0, user.tokenLimit - user.tokensUsed);
 
   return {
     userId,
     date: today,
-    tokensUsed: tokenUsage.tokensUsed,
+    tokensUsed: user.tokensUsed,
     tokensRemaining,
-    dailyLimit: user.dailyTokenLimit,
+    dailyLimit: user.tokenLimit,
     requestCount: tokenUsage.requestCount,
     canMakeRequest: tokensRemaining > 0,
   };
@@ -159,6 +155,6 @@ export async function getUserTokenHistory(userId: string, days = 7) {
 export async function updateUserTokenLimit(userId: string, newLimit: number) {
   return await prisma.user.update({
     where: { id: userId },
-    data: { dailyTokenLimit: newLimit },
+    data: { tokenLimit: newLimit, dailyTokenLimit: newLimit },
   });
 }

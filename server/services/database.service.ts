@@ -29,6 +29,8 @@ export async function findOrCreateUser(data: CreateUserData) {
       provider: data.provider,
       name: data.name,
       profileImage: data.profileImage,
+      tokenLimit: 100000,
+      dailyTokenLimit: 100000,
     },
   });
 }

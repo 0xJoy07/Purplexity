@@ -1,4 +1,5 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import type { Request, Response } from "express";
 import "dotenv/config";
 import { searchWeb } from "./services/webSearch.service";
@@ -29,9 +30,15 @@ import {
   deleteTempUser,
   cleanupExpiredGuests,
 } from "./services/guest.service";
+import authRoutes from "./routes/auth.routes";
+import { requireAuth } from "./middleware/auth.middleware";
 
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
+app.use("/auth", authRoutes);
+app.use("/conversations", requireAuth);
+app.use("/tokens", requireAuth);
 
 // Test database connection on startup
 testDatabaseConnection();
@@ -39,7 +46,7 @@ testDatabaseConnection();
 // ============================================
 // LEGACY ENDPOINT - Single Query (Standalone)
 // ============================================
-app.post("/purplexity_ask", ensureUserId, checkTokenLimit, async (req: Request, res: Response) => {
+app.post("/purplexity_ask", requireAuth, checkTokenLimit, async (req: Request, res: Response) => {
   try {
     const query: string = req.body.query;
     const userId: string = req.body.userId
@@ -102,7 +109,7 @@ app.post("/purplexity_ask", ensureUserId, checkTokenLimit, async (req: Request, 
 // ============================================
 
 // Create a new conversation
-app.post("/conversations", ensureUserId, async (req: Request, res: Response) => {
+app.post("/conversations", async (req: Request, res: Response) => {
   try {
     const { userId, title } = req.body;
 
@@ -145,7 +152,7 @@ app.get("/conversations/:conversationId", async (req: Request, res: Response) =>
 });
 
 // Send a message in a conversation (with AI response)
-app.post("/conversations/:conversationId/messages", ensureUserId, checkTokenLimit, async (req: Request, res: Response) => {
+app.post("/conversations/:conversationId/messages", checkTokenLimit, async (req: Request, res: Response) => {
   try {
     const conversationId = req.params.conversationId as string;
     const { message } = req.body;

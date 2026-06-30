@@ -17,13 +17,18 @@ model User {
   provider        AuthProvider
   name            String
   profileImage    String?      @map("profile_image")
-  dailyTokenLimit Int          @default(10000) @map("daily_token_limit")
+  passwordHash    String?      @map("password_hash")
+  emailVerified   Boolean      @default(false) @map("email_verified")
+  tokenLimit      Int          @default(100000) @map("token_limit")
+  tokensUsed      Int          @default(0) @map("tokens_used")
+  dailyTokenLimit Int          @default(100000) @map("daily_token_limit")
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
 
   conversations Conversation[]
   queries       Query[]
   tokenUsage    TokenUsage[]
+  revokedTokens RevokedToken[]
 
   @@map("users")
 }
@@ -32,8 +37,21 @@ model User {
 enum AuthProvider {
   Github
   Google
+  Credentials
 
   @@map("auth_provider")
+}
+
+model RevokedToken {
+  id        String   @id @default(uuid())
+  jti       String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("revoked_tokens")
 }
 
 // Conversation model - represents a chat session
