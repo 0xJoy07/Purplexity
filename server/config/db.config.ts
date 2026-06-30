@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../generated";
 import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 

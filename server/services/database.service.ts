@@ -1,5 +1,5 @@
 import { prisma } from "../config/db.config";
-import type { AuthProvider } from "@prisma/client";
+import type { AuthProvider } from "../generated";
 
 export interface CreateUserData {
   email: string;

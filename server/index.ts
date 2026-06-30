@@ -20,7 +20,7 @@ import {
   getTodayTokenUsage,
   getUserTokenHistory,
 } from "./services/token.service";
-import { checkTokenLimit } from "./middleware/tokenLimit.middleware";
+import { checkTokenLimit, ensureUserId } from "./middleware/tokenLimit.middleware";
 import {
   createGuestUser,
   createTestUser,
@@ -39,10 +39,10 @@ testDatabaseConnection();
 // ============================================
 // LEGACY ENDPOINT - Single Query (Standalone)
 // ============================================
-app.post("/purplexity_ask", checkTokenLimit, async (req: Request, res: Response) => {
+app.post("/purplexity_ask", ensureUserId, checkTokenLimit, async (req: Request, res: Response) => {
   try {
     const query: string = req.body.query;
-    const userId: string = req.body.userId; // Now required
+    const userId: string = req.body.userId
 
     if (!query) {
       res.status(400).json({ error: "query is required" });
@@ -102,14 +102,9 @@ app.post("/purplexity_ask", checkTokenLimit, async (req: Request, res: Response)
 // ============================================
 
 // Create a new conversation
-app.post("/conversations", async (req: Request, res: Response) => {
+app.post("/conversations", ensureUserId, async (req: Request, res: Response) => {
   try {
     const { userId, title } = req.body;
-
-    if (!userId) {
-      res.status(400).json({ error: "userId is required" });
-      return;
-    }
 
     const conversation = await createConversation({ userId, title });
     res.json(conversation);
@@ -150,19 +145,14 @@ app.get("/conversations/:conversationId", async (req: Request, res: Response) =>
 });
 
 // Send a message in a conversation (with AI response)
-app.post("/conversations/:conversationId/messages", checkTokenLimit, async (req: Request, res: Response) => {
+app.post("/conversations/:conversationId/messages", ensureUserId, checkTokenLimit, async (req: Request, res: Response) => {
   try {
     const conversationId = req.params.conversationId as string;
     const { message } = req.body;
-    const userId = req.body.userId; // Required for token tracking
+    const userId = req.body.userId
 
     if (!message) {
       res.status(400).json({ error: "message is required" });
-      return;
-    }
-
-    if (!userId) {
-      res.status(400).json({ error: "userId is required" });
       return;
     }
 

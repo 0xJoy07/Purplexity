@@ -1,5 +1,30 @@
 import type { Request, Response, NextFunction } from "express";
+import { createGuestUser } from "../services/guest.service";
 import { getTodayTokenUsage } from "../services/token.service";
+
+/**
+ * Ensures requests that need a user always have a persisted user record.
+ * Anonymous callers receive a temporary guest user whose ID is returned in
+ * both req.body.userId and the X-User-Id response header.
+ */
+export async function ensureUserId(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    if (!req.body.userId) {
+      const guest = await createGuestUser();
+      req.body.userId = guest.userId;
+    }
+
+    res.setHeader("X-User-Id", req.body.userId);
+    next();
+  } catch (error) {
+    console.error("Failed to resolve request user:", error);
+    res.status(500).json({ error: "Failed to create guest user" });
+  }
+}
 
 export async function checkTokenLimit(
   req: Request,
@@ -7,15 +32,13 @@ export async function checkTokenLimit(
   next: NextFunction
 ) {
   try {
-    // Get userId from request body
     const userId = req.body.userId;
 
     if (!userId) {
-      res.status(400).json({ error: "userId is required for token tracking" });
+      res.status(500).json({ error: "Request user was not initialized" });
       return;
     }
 
-    // Check today's token usage
     const tokenInfo = await getTodayTokenUsage(userId);
 
     if (!tokenInfo.canMakeRequest) {
@@ -33,9 +56,7 @@ export async function checkTokenLimit(
       return;
     }
 
-    // Attach token info to request for later use
     (req as any).tokenInfo = tokenInfo;
-
     next();
   } catch (error) {
     console.error("Token limit check error:", error);

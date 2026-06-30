@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from './generated';
 
 const prisma = new PrismaClient({
   log: ['query', 'error', 'warn'],
