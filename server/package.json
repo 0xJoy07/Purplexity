@@ -8,7 +8,8 @@
     "db:generate": "bunx prisma generate",
     "db:push": "bunx prisma db push",
     "db:studio": "bunx prisma studio",
-    "db:migrate": "bunx prisma migrate dev"
+    "db:migrate": "bunx prisma migrate dev",
+    "create:test-users": "bun run scripts/create-test-users.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -18,14 +19,14 @@
   },
   "dependencies": {
     "@openrouter/sdk": "^0.13.21",
-    "@prisma/client": "^7.8.0",
+    "@prisma/client": "6.10.0",
     "@supabase/supabase-js": "^2.110.0",
     "@tavily/core": "^0.7.6",
     "@types/express": "^5.0.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "openai": "^6.45.0",
-    "prisma": "^7.8.0",
+    "prisma": "6.10.0",
     "zod-to-json-schema": "^3.25.2"
   }
 }

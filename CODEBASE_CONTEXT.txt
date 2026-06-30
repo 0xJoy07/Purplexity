@@ -1,0 +1,1114 @@
+================================================================================
+                    PURPLEXITY - COMPLETE CODEBASE CONTEXT
+================================================================================
+Generated: 2025
+Project: AI-Powered Search Interface (Perplexity Clone)
+Tech Stack: Bun, Express, TypeScript, Prisma, Supabase, OpenRouter, Tavily
+
+================================================================================
+                              PROJECT OVERVIEW
+================================================================================
+
+Purplexity is an AI-powered conversational search engine that combines:
+- Real-time web search via Tavily API
+- LLM-generated answers via OpenRouter (with multiple model support)
+- Multi-turn conversations with full context persistence
+- User authentication via Supabase Auth (Google/GitHub OAuth)
+- PostgreSQL database with Prisma ORM
+
+CORE FLOW:
+User Query → Tavily Web Search (10 results) → Context Engineering → 
+OpenRouter LLM → Structured Response (Answer + Follow-ups + Sources) → 
+Database Persistence
+
+================================================================================
+                           TECHNOLOGY STACK
+================================================================================
+
+RUNTIME & FRAMEWORK:
+- Bun (v1.3.14) - JavaScript runtime (faster than Node.js)
+- Express.js (v5.2.1) - REST API framework
+- TypeScript (v5) - Type safety
+
+AI & SEARCH:
+- Tavily (@tavily/core v0.7.6) - Advanced web search with summaries
+- OpenRouter (via OpenAI SDK v6.45.0) - Multi-provider LLM gateway
+  - Supports: GPT-4, Claude, Gemini, DeepSeek, etc.
+- Zod (v3) - Schema validation for LLM responses
+
+DATABASE & AUTH:
+- Supabase (@supabase/supabase-js v2.110.0) - BaaS (Auth + Storage)
+- Prisma (@prisma/client v7.8.0) - Type-safe ORM
+- PostgreSQL - Primary database
+
+UTILITIES:
+- dotenv (v17.4.2) - Environment variable management
+- zod-to-json-schema (v3.25.2) - JSON schema generation
+
+================================================================================
+                          PROJECT STRUCTURE
+================================================================================
+
+Purplexity/
+├── architecture/               # Architecture documentation
+│   ├── architecture.md        # Detailed system design
+│   └── purplexity_architecture.png
+├── client/                    # Frontend (empty - to be built)
+└── server/                    # Backend (Bun + Express)
+    ├── config/
+    │   └── db.config.ts       # Database & Supabase client setup
+    ├── services/
+    │   ├── webSearch.service.ts      # Tavily integration
+    │   ├── ai.service.ts             # OpenRouter LLM integration
+    │   ├── conversation.service.ts   # Conversation management
+    │   └── database.service.ts       # User & query operations
+    ├── prisma/
+    │   └── schema.prisma      # Database schema definition
+    ├── generated/             # Auto-generated Prisma client (run db:generate)
+    ├── index.ts               # Main Express server
+    ├── prompt.ts              # System prompts & templates
+    ├── package.json           # Dependencies & scripts
+    ├── .env                   # Environment variables (NOT in git)
+    ├── .env.example           # Environment template
+    └── docs/
+        ├── API_DOCUMENTATION.md      # Complete API reference
+        ├── DATABASE_SCHEMA.md        # DB schema details
+        ├── SETUP_INSTRUCTIONS.md     # Quick start guide
+        └── SUPABASE_SETUP.md         # Supabase configuration
+
+================================================================================
+                        DATABASE SCHEMA (Prisma)
+================================================================================
+
+TABLES:
+
+1. users
+   - id (UUID, PK)
+   - email (String, UNIQUE)
+   - provider (AuthProvider: Github | Google)
+   - name (String)
+   - profileImage (String?)
+   - createdAt, updatedAt
+
+2. conversations
+   - id (UUID, PK)
+   - userId (UUID, FK → users.id, CASCADE DELETE)
+   - title (String, default: "New Conversation")
+   - createdAt, updatedAt
+   - Indexes: userId, createdAt
+
+
+3. messages
+   - id (UUID, PK)
+   - conversationId (UUID, FK → conversations.id, CASCADE DELETE)
+   - role (MessageRole: user | assistant | system)
+   - content (Text)
+   - sources (JSON?, array of {title, url})
+   - followUps (String[], array of follow-up questions)
+   - createdAt
+   - Indexes: conversationId, createdAt
+
+4. queries (Legacy - standalone queries, not part of conversations)
+   - id (UUID, PK)
+   - userId (UUID, FK → users.id, CASCADE DELETE)
+   - query (Text)
+   - answer (Text)
+   - followUps (String[])
+   - sources (JSON)
+   - createdAt
+   - Indexes: userId, createdAt
+
+RELATIONSHIPS:
+User → Conversations (1:N)
+User → Queries (1:N)
+Conversation → Messages (1:N)
+
+CASCADE DELETES:
+- Delete user → deletes all conversations & queries
+- Delete conversation → deletes all messages
+
+================================================================================
+                          API ENDPOINTS
+================================================================================
+
+BASE URL: http://localhost:3000
+
+HEALTH & UTILITY:
+GET  /health           - Server health check
+GET  /health/db        - Database connection check
+
+USER MANAGEMENT:
+POST /users            - Create or find user (upsert)
+                         Body: { email, provider, name, profileImage? }
+GET  /users/:userId    - Get user profile with stats
+
+CONVERSATION MANAGEMENT:
+POST   /conversations  - Create new conversation
+                         Body: { userId, title? }
+GET    /conversations/user/:userId
+                       - Get all user's conversations (with message count)
+GET    /conversations/:conversationId
+                       - Get conversation with all messages
+POST   /conversations/:conversationId/messages
+                       - Send message & get AI response
+                         Body: { message }
+PATCH  /conversations/:conversationId
+                       - Update conversation title
+                         Body: { title }
+DELETE /conversations/:conversationId
+                       - Delete conversation (cascades to messages)
+
+
+LEGACY ENDPOINT:
+POST /purplexity_ask   - Standalone query (not part of conversation)
+                         Body: { query, userId? }
+                         Response: XML-style text
+                         <ANSWER>...</ANSWER><FOLLOW UP>...</FOLLOW UP>
+
+================================================================================
+                        KEY SERVICES BREAKDOWN
+================================================================================
+
+1. webSearch.service.ts
+   - Function: searchWeb(query: string)
+   - Uses: Tavily API with "advanced" search depth
+   - Returns: Array of { title, url, content, score }
+   - Max results: 10 per query
+
+2. ai.service.ts
+   - Function: generateResponse(query, webSearchResults)
+   - Model: openrouter/auto (auto-selects best free model)
+   - Current: google/gemini-2.0-flash-exp:free
+   - Process:
+     1. Context engineering (prompt template + web results)
+     2. LLM call with JSON mode
+     3. Zod schema validation
+   - Returns: { answer: string, followUps: string[] }
+
+3. conversation.service.ts
+   - Conversation CRUD:
+     - createConversation()
+     - getConversationById()
+     - getUserConversations()
+     - updateConversationTitle()
+     - deleteConversation()
+   - Message operations:
+     - createMessage()
+     - getConversationMessages()
+     - deleteMessage()
+   - Combined operations:
+     - addMessageToConversation() - Creates both user & assistant messages
+     - generateConversationTitle() - Auto-generates from first message
+
+4. database.service.ts
+   - User operations:
+     - findOrCreateUser() - Upsert by email
+     - getUserById() - With conversations & queries
+     - updateUserProfile()
+     - deleteUser()
+   - Query operations (legacy):
+     - saveQuery()
+     - getQueryById()
+     - getUserQueries()
+     - deleteQuery()
+   - Statistics:
+     - getUserStats() - Returns conversation/message/query counts
+
+
+5. db.config.ts
+   - Exports:
+     - prisma: PrismaClient instance (with logging)
+     - supabase: Supabase client (for auth & storage)
+     - testDatabaseConnection(): Tests Prisma connection
+   - Handles graceful shutdown on process exit
+
+================================================================================
+                        PROMPTS & CONTEXT ENGINEERING
+================================================================================
+
+SYSTEM_PROMPT (prompt.ts):
+"You are Purplexity, an expert assistant. Answer queries based on web search 
+results. Respond ONLY with valid JSON: { answer: string, followUps: string[] }
+Generate 3-5 relevant follow-up questions."
+
+PROMPT_TEMPLATE (prompt.ts):
+## Web search results
+{{WEB_SEARCH_RESULTS}}
+
+## USER_QUERY
+{{USER_QUERY}}
+
+FLOW:
+1. Replace {{WEB_SEARCH_RESULTS}} with JSON.stringify(webSearchResults)
+2. Replace {{USER_QUERY}} with actual user query
+3. Send to LLM with SYSTEM_PROMPT
+4. Parse JSON response with Zod schema
+
+================================================================================
+                        ENVIRONMENT VARIABLES
+================================================================================
+
+REQUIRED (.env):
+TAVILY_API_KEY=tvly-dev-...
+OPENROUTER_API_KEY=sk-or-v1-...
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+DATABASE_URL=postgresql://postgres:password@db.xxxxx.supabase.co:5432/postgres
+
+OPTIONAL:
+NVIDIA_API_KEY=nvapi-... (currently in .env but not used)
+PORT=3000 (defaults to 3000)
+NODE_ENV=development (for Prisma logging)
+
+================================================================================
+                        NPM SCRIPTS (package.json)
+================================================================================
+
+bun run dev        - Start development server (index.ts)
+bun run db:generate - Generate Prisma client from schema.prisma
+bun run db:push    - Push schema changes to database (no migration files)
+bun run db:studio  - Open Prisma Studio (DB GUI on localhost:5555)
+bun run db:migrate - Create migration files (for production)
+
+
+================================================================================
+                        TYPICAL REQUEST FLOW
+================================================================================
+
+EXAMPLE: User sends "What is Rust?" in an existing conversation
+
+1. Frontend → POST /conversations/{id}/messages
+   Body: { message: "What is Rust?" }
+
+2. Server validates conversationId exists
+
+3. webSearch.service.searchWeb("What is Rust?")
+   - Calls Tavily API
+   - Returns 10 web results with content summaries
+
+4. ai.service.generateResponse(query, results)
+   - Builds context: SYSTEM_PROMPT + PROMPT_TEMPLATE + web results
+   - Calls OpenRouter with model: "openrouter/auto"
+   - Receives JSON: { answer: "...", followUps: [...] }
+
+5. conversation.service.addMessageToConversation()
+   - Creates user message in DB
+   - Creates assistant message in DB (with sources & followUps)
+   - Updates conversation.updatedAt
+
+6. If first message: generateConversationTitle()
+   - Takes first 50 chars of user message as title
+
+7. Server responds with:
+   {
+     userMessage: { id, role: "user", content, ... },
+     assistantMessage: { id, role: "assistant", content, sources, followUps },
+     sources: [{ title, url }],
+     followUps: ["question 1", "question 2", ...]
+   }
+
+================================================================================
+                        DATA FLOW DIAGRAM
+================================================================================
+
+┌─────────────┐
+│   Frontend  │ (To be built - Next.js)
+└──────┬──────┘
+       │ HTTP REST API
+       ▼
+┌─────────────────────────────────────────┐
+│         Express Server (index.ts)        │
+├─────────────────────────────────────────┤
+│  Routes:                                │
+│  - /purplexity_ask (legacy)             │
+│  - /conversations/*                     │
+│  - /users/*                             │
+└──────┬──────────────────────────────────┘
+       │
+       ├──────────────┬──────────────┬──────────────┐
+       ▼              ▼              ▼              ▼
+┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+│ Tavily   │  │OpenRouter│  │  Prisma  │  │ Supabase │
+│   API    │  │   LLM    │  │   ORM    │  │   Auth   │
+└──────────┘  └──────────┘  └────┬─────┘  └──────────┘
+                                  │
+                                  ▼
+                          ┌───────────────┐
+                          │  PostgreSQL   │
+                          │   Database    │
+                          └───────────────┘
+
+
+================================================================================
+                        CURRENT STATUS
+================================================================================
+
+✅ COMPLETED:
+- Backend REST API (Express + Bun)
+- Database schema (Prisma + PostgreSQL)
+- Supabase integration (client setup)
+- Tavily web search integration
+- OpenRouter LLM integration (with JSON mode)
+- Conversation management (CRUD operations)
+- User management (auth ready, OAuth pending)
+- Message persistence with sources & follow-ups
+- Auto-generated conversation titles
+- User statistics (conversation/message/query counts)
+- Comprehensive API documentation
+- Health check endpoints
+
+⏳ PENDING:
+- Prisma client generation (run: bun run db:generate)
+- Database migration (run: bun run db:push)
+- Supabase credentials in .env
+- Frontend (Next.js) - NOT STARTED
+- OAuth implementation (Google/GitHub)
+- SSE streaming for real-time responses
+- Rate limiting
+- Caching layer (Redis/Upstash)
+- pgvector for semantic search
+
+================================================================================
+                        SETUP CHECKLIST
+================================================================================
+
+1. ✅ Install dependencies
+   $ bun install
+
+2. ⏳ Configure Supabase
+   - Create project at supabase.com
+   - Get: Project URL, Anon Key, Database Connection String
+   - Add to .env file
+
+3. ⏳ Generate Prisma Client
+   $ bun run db:generate
+
+4. ⏳ Push Database Schema
+   $ bun run db:push
+
+5. ✅ Start server
+   $ bun run dev
+   - Server: http://localhost:3000
+   - Health: http://localhost:3000/health
+
+6. ⏳ Test API (Postman/curl)
+   - Create user
+   - Create conversation
+   - Send message
+   - Verify response
+
+================================================================================
+                        KEY DESIGN DECISIONS
+================================================================================
+
+1. TWO QUERY MODES:
+   - Conversations: Multi-turn chat with context (primary)
+   - Queries: Single-shot standalone searches (legacy)
+
+
+2. MODEL SELECTION:
+   - Currently: openrouter/auto (auto-selects best free model)
+   - Backup: google/gemini-2.0-flash-exp:free
+   - Future: Allow user to select model via API parameter
+
+3. RESPONSE FORMAT:
+   - Legacy endpoint: XML-style text <ANSWER>...</ANSWER><FOLLOW UP>...</FOLLOW UP>
+   - Modern endpoints: JSON with structured data
+
+4. DATABASE STRATEGY:
+   - Prisma for type-safe queries
+   - Supabase for auth + real-time (future)
+   - UUID primary keys (non-sequential, secure)
+   - Cascade deletes (prevent orphaned records)
+   - Indexed foreign keys (performance)
+
+5. ERROR HANDLING:
+   - Try-catch on all async operations
+   - Database failures don't break API responses (optional persistence)
+   - Zod validation for LLM responses (fallback to error message)
+   - Health checks for monitoring
+
+6. SCALABILITY:
+   - Stateless server (can horizontally scale)
+   - Database connection pooling (via Prisma)
+   - Future: Redis cache for repeat queries
+   - Future: SSE streaming for better UX
+
+================================================================================
+                        TROUBLESHOOTING
+================================================================================
+
+ERROR: Cannot find module '../generated/client'
+FIX: Run `bun run db:generate`
+
+ERROR: Database connection failed
+FIX: Check DATABASE_URL in .env, verify Supabase project is active
+
+ERROR: LLM returned invalid JSON
+FIX: Already handled with try-catch, logs raw response to console
+
+ERROR: Tavily API rate limit
+FIX: Check API key, implement caching, or upgrade Tavily plan
+
+ERROR: OpenRouter 401 Unauthorized
+FIX: Check OPENROUTER_API_KEY in .env
+
+================================================================================
+                        TESTING GUIDE (Postman)
+================================================================================
+
+1. CREATE USER
+   POST http://localhost:3000/users
+   Body: { "email": "test@example.com", "provider": "Google", "name": "Test User" }
+   → Save userId from response
+
+2. CREATE CONVERSATION
+   POST http://localhost:3000/conversations
+   Body: { "userId": "{userId-from-step-1}" }
+   → Save conversationId from response
+
+
+3. SEND MESSAGE
+   POST http://localhost:3000/conversations/{conversationId}/messages
+   Body: { "message": "What is Rust programming language?" }
+   → Expect: userMessage, assistantMessage, sources, followUps
+
+4. VIEW CONVERSATION
+   GET http://localhost:3000/conversations/{conversationId}
+   → Expect: Full conversation with all messages
+
+5. GET USER CONVERSATIONS
+   GET http://localhost:3000/conversations/user/{userId}
+   → Expect: Array of conversations with message counts
+
+6. LEGACY ENDPOINT (optional)
+   POST http://localhost:3000/purplexity_ask
+   Body: { "query": "What is TypeScript?", "userId": "{userId}" }
+   → Expect: XML-style text response
+
+================================================================================
+                        NEXT STEPS (Frontend)
+================================================================================
+
+FRONTEND REQUIREMENTS:
+
+1. TECH STACK (Recommended):
+   - Next.js 14 (App Router)
+   - TailwindCSS + shadcn/ui
+   - Supabase JS SDK (for auth)
+   - React Query or SWR (for data fetching)
+
+2. KEY COMPONENTS:
+   - SearchInput: Main query input with auto-focus
+   - ChatMessage: Display user/assistant messages
+   - SourceCard: Clickable web source citations
+   - FollowUpChips: Clickable follow-up questions
+   - Sidebar: Conversation history list
+   - ConversationView: Full chat interface
+
+3. PAGES:
+   - / (Home): Landing page with search
+   - /search/[id]: Conversation view
+   - /login: OAuth buttons (Google/GitHub)
+
+4. STATE MANAGEMENT:
+   - User auth state (Supabase session)
+   - Current conversation
+   - Message history
+   - Loading states (web search, LLM generation)
+
+5. API INTEGRATION:
+   - Fetch conversations on sidebar mount
+   - Create conversation on first query
+   - Send message → display streaming response (future SSE)
+   - Handle sources & follow-ups in UI
+
+6. SUPABASE AUTH:
+   - Implement OAuth (Google/GitHub)
+   - Store JWT in localStorage via Supabase SDK
+   - Send JWT in Authorization header to backend
+   - Backend validates JWT with Supabase public key
+
+
+================================================================================
+                        PERFORMANCE OPTIMIZATIONS
+================================================================================
+
+CURRENT:
+- Indexed database queries (userId, createdAt, conversationId)
+- Prisma connection pooling
+- Zod schema caching (compiled once)
+- JSON mode for LLM (faster than text parsing)
+
+PLANNED:
+- Redis cache for Tavily results (TTL: 1 hour)
+  Key: hash(normalised_query) → Value: search results
+- SSE streaming for real-time token display
+- Debounced search input (avoid rapid API calls)
+- Lazy load conversation history (pagination)
+- CDN for static assets (Next.js)
+
+BENCHMARKS (Estimated):
+- Web search (Tavily): ~2-3 seconds
+- LLM generation (OpenRouter): ~3-5 seconds
+- Database write: <100ms
+- Total request time: ~5-8 seconds (without caching)
+- With cache: ~3-5 seconds (skip Tavily)
+- With streaming: Perceived time <1 second (show sources immediately)
+
+================================================================================
+                        SECURITY CONSIDERATIONS
+================================================================================
+
+IMPLEMENTED:
+- Environment variables for secrets (.env in .gitignore)
+- UUID primary keys (non-sequential, harder to enumerate)
+- Cascade deletes (no orphaned data)
+- Input validation (Zod schemas)
+- Error messages don't leak internals
+
+REQUIRED (Frontend):
+- Supabase RLS (Row Level Security) policies:
+  - Users can only read/write their own conversations
+  - Users can only read/write their own messages
+- JWT validation middleware on backend
+- HTTPS in production
+- CORS configuration (whitelist frontend domain)
+
+RECOMMENDED:
+- Rate limiting (per user, per IP)
+- API key rotation (Tavily, OpenRouter)
+- SQL injection prevention (Prisma handles this)
+- XSS prevention (React escapes by default)
+- CSRF tokens (if using cookies)
+
+================================================================================
+                        DEPLOYMENT CHECKLIST
+================================================================================
+
+BACKEND (Bun):
+- [ ] Set NODE_ENV=production
+- [ ] Use Prisma migrate (not db:push) for schema changes
+- [ ] Enable Prisma query logging in dev only
+- [ ] Set up connection pooling (Supabase handles this)
+- [ ] Configure CORS for frontend domain
+- [ ] Add rate limiting middleware
+- [ ] Set up monitoring (Sentry, Datadog, etc.)
+- [ ] Use secrets manager (not .env in production)
+
+
+FRONTEND (Next.js):
+- [ ] Build static assets (npm run build)
+- [ ] Enable compression (gzip/brotli)
+- [ ] Set up CDN (Vercel, Cloudflare)
+- [ ] Configure environment variables (Vercel dashboard)
+- [ ] Enable preview deployments (per PR)
+- [ ] Set up analytics (Vercel Analytics, Plausible)
+
+DATABASE (Supabase):
+- [ ] Enable RLS policies on all tables
+- [ ] Set up automated backups
+- [ ] Configure connection pooling
+- [ ] Monitor query performance
+- [ ] Set up database indexes (already done via Prisma)
+
+HOSTING OPTIONS:
+- Backend: Railway, Fly.io, Render, AWS Lambda
+- Frontend: Vercel, Netlify, Cloudflare Pages
+- Database: Supabase (managed), AWS RDS, DigitalOcean
+
+================================================================================
+                        COST ESTIMATES (Monthly)
+================================================================================
+
+SERVICES:
+
+Tavily API:
+- Free tier: 1,000 searches/month
+- Pro tier: $99/month (10,000 searches)
+- Enterprise: Custom pricing
+
+OpenRouter:
+- Pay-per-use (varies by model)
+- Free models: $0 (gemini-2.0-flash-exp:free, etc.)
+- GPT-4: ~$0.03 per 1K tokens
+- Estimated: $20-50/month (1000 queries @ 5K tokens each)
+
+Supabase:
+- Free tier: 500MB database, 2GB bandwidth, 50K monthly active users
+- Pro tier: $25/month (8GB database, 50GB bandwidth, 100K MAU)
+
+Total Estimated Cost (Low Usage):
+- Free tier: $0/month (1000 queries with free models)
+- Medium usage: $50-75/month (5000 queries with mixed models)
+- High usage: $200-300/month (20K queries with premium models)
+
+OPTIMIZATION STRATEGIES:
+- Use free models for casual queries
+- Implement caching (reduce Tavily calls by 50-70%)
+- Rate limiting (prevent abuse)
+- Model selection (let users choose speed vs quality)
+
+================================================================================
+                        CODE QUALITY & BEST PRACTICES
+================================================================================
+
+CURRENT IMPLEMENTATION:
+
+✅ TypeScript Strict Mode:
+- Type safety throughout
+- No implicit any
+- Strict null checks
+
+
+✅ Error Handling:
+- Try-catch on all async operations
+- Graceful degradation (DB failures don't break API)
+- Meaningful error messages
+- HTTP status codes (400, 404, 500)
+
+✅ Code Organization:
+- Service layer pattern (separation of concerns)
+- Single responsibility (each service has clear purpose)
+- DRY principle (no duplicate code)
+- Clear naming conventions
+
+✅ Database Design:
+- Normalized schema (no redundancy)
+- Foreign key constraints
+- Indexed queries (performance)
+- Cascade deletes (data integrity)
+
+✅ Security:
+- Environment variables for secrets
+- Input validation (Zod schemas)
+- Prepared statements (Prisma prevents SQL injection)
+- UUID primary keys
+
+IMPROVEMENTS NEEDED:
+- [ ] Add JSDoc comments to all functions
+- [ ] Write unit tests (Jest/Vitest)
+- [ ] Add integration tests (API endpoints)
+- [ ] Set up ESLint + Prettier
+- [ ] Add pre-commit hooks (Husky)
+- [ ] Generate API documentation (Swagger/OpenAPI)
+- [ ] Add request logging (Morgan/Winston)
+- [ ] Implement request ID tracking
+
+================================================================================
+                        DEPENDENCIES BREAKDOWN
+================================================================================
+
+PRODUCTION:
+@openrouter/sdk (0.13.21)         - OpenRouter API wrapper (unused in current code)
+@prisma/client (7.8.0)            - Prisma ORM runtime
+@supabase/supabase-js (2.110.0)   - Supabase client SDK
+@tavily/core (0.7.6)              - Tavily search API
+@types/express (5.0.6)            - Express TypeScript types
+dotenv (17.4.2)                   - Environment variable loader
+express (5.2.1)                   - Web framework
+openai (6.45.0)                   - OpenAI SDK (used for OpenRouter)
+prisma (7.8.0)                    - Prisma CLI & migrations
+zod-to-json-schema (3.25.2)       - Zod to JSON schema converter
+
+DEVELOPMENT:
+@types/bun (latest)               - Bun TypeScript types
+typescript (5)                    - TypeScript compiler
+
+UNUSED DEPENDENCIES (can be removed):
+@openrouter/sdk - Using OpenAI SDK instead
+
+
+================================================================================
+                        FUTURE ENHANCEMENTS
+================================================================================
+
+PHASE 1 - CORE FEATURES (Immediate):
+- [ ] Complete frontend (Next.js)
+- [ ] Implement OAuth (Google/GitHub)
+- [ ] Add JWT validation middleware
+- [ ] Implement SSE streaming for real-time responses
+- [ ] Add conversation title editing
+- [ ] Add message deletion
+
+PHASE 2 - USER EXPERIENCE:
+- [ ] Redis caching for repeat queries
+- [ ] Search within conversation history
+- [ ] Export conversation (PDF, Markdown)
+- [ ] Share conversation (public link)
+- [ ] Dark mode / Light mode
+- [ ] Mobile responsive design
+- [ ] Keyboard shortcuts
+
+PHASE 3 - ADVANCED FEATURES:
+- [ ] File upload (PDFs, images for context)
+- [ ] Multi-language support (i18n)
+- [ ] Voice input (speech-to-text)
+- [ ] Code syntax highlighting in responses
+- [ ] LaTeX math rendering
+- [ ] Citation management (BibTeX export)
+- [ ] Conversation folders/tags
+
+PHASE 4 - ANALYTICS & INSIGHTS:
+- [ ] User activity dashboard
+- [ ] Query analytics (popular topics)
+- [ ] Model performance comparison
+- [ ] Cost tracking per user
+- [ ] Response quality ratings
+- [ ] A/B testing for prompts
+
+PHASE 5 - ENTERPRISE FEATURES:
+- [ ] Team workspaces
+- [ ] Role-based access control
+- [ ] API rate limiting per plan
+- [ ] Custom domain support
+- [ ] White-label option
+- [ ] Self-hosted deployment
+
+PHASE 6 - AI ENHANCEMENTS:
+- [ ] pgvector for semantic search
+- [ ] Query rewriting (clarification)
+- [ ] Multi-step reasoning (chain of thought)
+- [ ] Fact-checking citations
+- [ ] Source quality scoring
+- [ ] Automatic follow-up suggestions
+- [ ] Context-aware prompts
+
+================================================================================
+                        KNOWN ISSUES & LIMITATIONS
+================================================================================
+
+CURRENT ISSUES:
+1. Prisma client not generated (requires manual step)
+2. No streaming (user waits 5-8 seconds for full response)
+3. No rate limiting (vulnerable to abuse)
+4. No caching (every query hits Tavily + LLM)
+5. Legacy endpoint returns XML (inconsistent with JSON API)
+6. No authentication (userId is just a string, not validated)
+
+
+LIMITATIONS:
+1. Single LLM provider (OpenRouter only)
+2. No offline mode
+3. English-only prompts (can be extended)
+4. Max 10 search results (Tavily limit)
+5. No conversation search
+6. No conversation export
+7. No file attachments
+8. No image generation
+9. No conversation branching (edit previous message)
+
+TECHNICAL DEBT:
+1. Remove unused @openrouter/sdk dependency
+2. Add proper error types (not just Error)
+3. Add request/response logging
+4. Add health check for external APIs (Tavily, OpenRouter)
+5. Add Prisma migration files (currently using db:push)
+6. Add API versioning (e.g., /v1/conversations)
+7. Separate route handlers into routes/ directory
+
+================================================================================
+                        DOCUMENTATION FILES
+================================================================================
+
+SERVER DOCUMENTATION:
+1. API_DOCUMENTATION.md       - Complete REST API reference with examples
+2. DATABASE_SCHEMA.md         - Database schema, ERD, relationships
+3. SETUP_INSTRUCTIONS.md      - Quick setup guide for developers
+4. SUPABASE_SETUP.md          - Supabase configuration steps
+5. README.md                  - Project overview (currently minimal)
+
+ARCHITECTURE DOCUMENTATION:
+1. architecture/architecture.md  - System design, data flow, tech stack
+2. architecture/purplexity_architecture.png - Visual architecture diagram
+
+PROJECT ROOT:
+1. CODEBASE_CONTEXT.txt       - THIS FILE - Complete project context
+
+MISSING DOCUMENTATION (to be created):
+- CONTRIBUTING.md             - Contribution guidelines
+- CHANGELOG.md                - Version history
+- API_VERSIONING.md           - API version strategy
+- TESTING.md                  - Testing strategy & guide
+- DEPLOYMENT.md               - Production deployment guide
+
+================================================================================
+                        GIT WORKFLOW
+================================================================================
+
+CURRENT SETUP:
+- Git repository initialized
+- .gitignore includes:
+  - node_modules/
+  - .env (secrets not committed)
+  - generated/ (Prisma client)
+  - bun.lock (optional, can include)
+
+RECOMMENDED BRANCHES:
+- main: Production-ready code
+- develop: Integration branch
+- feature/*: Feature development
+- bugfix/*: Bug fixes
+- hotfix/*: Emergency production fixes
+
+
+COMMIT MESSAGE CONVENTION (Recommended):
+feat: Add conversation title editing
+fix: Resolve database connection timeout
+docs: Update API documentation
+refactor: Extract prompt engineering to separate service
+test: Add unit tests for conversation service
+chore: Update dependencies
+
+================================================================================
+                        COMPETITIVE ANALYSIS
+================================================================================
+
+COMPARISON WITH PERPLEXITY.AI:
+
+SIMILAR FEATURES:
+✅ Web search + LLM integration
+✅ Source citations
+✅ Follow-up questions
+✅ Conversation history
+✅ Multi-turn context
+
+MISSING FROM PURPLEXITY:
+❌ Real-time streaming (in progress)
+❌ Pro search mode (deep research)
+❌ File upload (PDFs, images)
+❌ Collections/organization
+❌ Mobile apps
+❌ Browser extension
+❌ API access for developers
+❌ Focus modes (writing, research, etc.)
+❌ Thread forking (edit history)
+❌ Copilot (inline suggestions)
+
+PURPLEXITY ADVANTAGES:
+✅ Open source (can self-host)
+✅ Model selection (not locked to one provider)
+✅ Full data control (own database)
+✅ Customizable prompts
+✅ No subscription required (pay-per-use)
+
+================================================================================
+                        LEARNING RESOURCES
+================================================================================
+
+KEY TECHNOLOGIES:
+
+Bun Runtime:
+- Official Docs: https://bun.sh/docs
+- Bun vs Node: https://bun.sh/docs/runtime/nodejs-apis
+
+Prisma ORM:
+- Getting Started: https://www.prisma.io/docs/getting-started
+- Schema Reference: https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference
+- Prisma Client API: https://www.prisma.io/docs/reference/api-reference/prisma-client-reference
+
+Supabase:
+- Quick Start: https://supabase.com/docs/guides/getting-started
+- Auth Guide: https://supabase.com/docs/guides/auth
+- Database: https://supabase.com/docs/guides/database
+
+OpenRouter:
+- Documentation: https://openrouter.ai/docs
+- Models: https://openrouter.ai/models
+- Pricing: https://openrouter.ai/docs#pricing
+
+
+Tavily API:
+- Documentation: https://docs.tavily.com
+- API Reference: https://docs.tavily.com/docs/tavily-api/rest_api
+- Python SDK: https://docs.tavily.com/docs/python-sdk/tavily-search
+
+Express.js:
+- Guide: https://expressjs.com/en/guide/routing.html
+- API Reference: https://expressjs.com/en/5x/api.html
+
+TypeScript:
+- Handbook: https://www.typescriptlang.org/docs/handbook/intro.html
+- Best Practices: https://www.typescriptlang.org/docs/handbook/declaration-files/do-s-and-don-ts.html
+
+================================================================================
+                        CONTRIBUTION GUIDELINES
+================================================================================
+
+HOW TO CONTRIBUTE:
+
+1. Fork the repository
+2. Create a feature branch (feature/my-new-feature)
+3. Make changes following code style
+4. Add tests for new features
+5. Update documentation
+6. Submit pull request with clear description
+
+CODE STYLE:
+- Use TypeScript strict mode
+- Follow existing naming conventions
+- Add JSDoc comments for public APIs
+- Keep functions small and focused
+- Use async/await (not callbacks)
+- Handle errors gracefully
+
+TESTING REQUIREMENTS:
+- Unit tests for service functions
+- Integration tests for API endpoints
+- E2E tests for critical user flows
+- Test coverage > 80%
+
+DOCUMENTATION REQUIREMENTS:
+- Update API_DOCUMENTATION.md for new endpoints
+- Update DATABASE_SCHEMA.md for schema changes
+- Add inline comments for complex logic
+- Update CHANGELOG.md
+
+================================================================================
+                        QUICK REFERENCE
+================================================================================
+
+IMPORTANT FILES:
+server/index.ts                   - Main server entry point
+server/prisma/schema.prisma       - Database schema
+server/services/*.service.ts      - Business logic
+server/config/db.config.ts        - Database setup
+server/prompt.ts                  - AI prompts
+server/.env                       - Environment variables (NOT in git)
+
+IMPORTANT COMMANDS:
+bun run dev                       - Start server
+bun run db:generate               - Generate Prisma client
+bun run db:push                   - Sync database schema
+bun run db:studio                 - Open database GUI
+
+
+KEY URLS (Local Development):
+http://localhost:3000             - API server
+http://localhost:3000/health      - Health check
+http://localhost:5555             - Prisma Studio (db:studio)
+
+KEY ENVIRONMENT VARIABLES:
+TAVILY_API_KEY                    - Web search API
+OPENROUTER_API_KEY                - LLM API
+SUPABASE_URL                      - Database & auth
+SUPABASE_ANON_KEY                 - Public client key
+DATABASE_URL                      - PostgreSQL connection string
+
+================================================================================
+                        GLOSSARY
+================================================================================
+
+TERMS:
+
+Conversation: A multi-turn chat session between user and AI
+Message: Single user question or AI response within conversation
+Query: Legacy standalone search (not part of conversation)
+Source: Web page citation with title, URL, and snippet
+Follow-up: AI-generated suggested next question
+Context Engineering: Building effective prompts for LLM
+RAG: Retrieval-Augmented Generation (web search + LLM)
+SSE: Server-Sent Events (real-time streaming)
+RLS: Row Level Security (Supabase database permissions)
+JWT: JSON Web Token (authentication)
+UUID: Universally Unique Identifier (non-sequential ID)
+Prisma: Type-safe ORM for database queries
+Supabase: Backend-as-a-Service (auth, database, storage)
+OpenRouter: LLM provider aggregator (access multiple models)
+Tavily: AI-optimized web search API
+
+ACRONYMS:
+
+API: Application Programming Interface
+REST: Representational State Transfer
+CRUD: Create, Read, Update, Delete
+ORM: Object-Relational Mapping
+JWT: JSON Web Token
+SSE: Server-Sent Events
+RLS: Row Level Security
+UUID: Universally Unique Identifier
+LLM: Large Language Model
+RAG: Retrieval-Augmented Generation
+TTL: Time To Live (cache expiration)
+CORS: Cross-Origin Resource Sharing
+SQL: Structured Query Language
+JSON: JavaScript Object Notation
+HTTP: Hypertext Transfer Protocol
+HTTPS: HTTP Secure
+CDN: Content Delivery Network
+MAU: Monthly Active Users
+
+
+================================================================================
+                        CONTACT & SUPPORT
+================================================================================
+
+PROJECT MAINTAINER:
+- GitHub: (To be added)
+- Email: (To be added)
+- Discord: (To be added)
+
+ISSUE REPORTING:
+- GitHub Issues: (Repository to be linked)
+- Bug reports: Include steps to reproduce, expected vs actual behavior
+- Feature requests: Describe use case and benefits
+
+COMMUNITY:
+- Discord Server: (To be created)
+- Twitter/X: (To be created)
+- Blog: (To be created)
+
+================================================================================
+                        LICENSE
+================================================================================
+
+(To be determined - recommend MIT or Apache 2.0 for open source)
+
+================================================================================
+                        CHANGELOG
+================================================================================
+
+Version 0.1.0 (Initial Development) - January 2025
+- ✅ Backend REST API with Express + Bun
+- ✅ Database schema with Prisma
+- ✅ Tavily web search integration
+- ✅ OpenRouter LLM integration
+- ✅ Conversation management (CRUD)
+- ✅ User management
+- ✅ Message persistence with sources & follow-ups
+- ✅ Auto-generated conversation titles
+- ✅ User statistics
+- ✅ Health check endpoints
+- ✅ Comprehensive documentation
+
+Version 0.2.0 (Planned) - TBD
+- [ ] Frontend with Next.js
+- [ ] Supabase OAuth (Google/GitHub)
+- [ ] JWT authentication
+- [ ] SSE streaming
+- [ ] Rate limiting
+- [ ] Redis caching
+
+Version 1.0.0 (Planned) - TBD
+- [ ] Production deployment
+- [ ] Mobile responsive design
+- [ ] Conversation export
+- [ ] Search within history
+- [ ] Public conversation sharing
+
+================================================================================
+                        END OF DOCUMENT
+================================================================================
+
+Last Updated: January 2025
+Document Version: 1.0
+Total Lines: ~750
+File Size: ~60KB
+
+For the latest information, check:
+- README.md (project overview)
+- API_DOCUMENTATION.md (API reference)
+- DATABASE_SCHEMA.md (database details)
+- architecture/architecture.md (system design)
+
+================================================================================

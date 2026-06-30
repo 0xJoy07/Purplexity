@@ -1,5 +1,5 @@
 import { prisma } from "../config/db.config";
-import type { MessageRole } from "../generated/client";
+import type { MessageRole } from "@prisma/client";
 
 export interface CreateConversationData {
   userId: string;

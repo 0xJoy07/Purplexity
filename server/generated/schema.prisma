@@ -1,0 +1,114 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../generated"
+  engineType    = "library"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id              String       @id @default(uuid())
+  email           String       @unique
+  provider        AuthProvider
+  name            String
+  profileImage    String?      @map("profile_image")
+  dailyTokenLimit Int          @default(10000) @map("daily_token_limit")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  conversations Conversation[]
+  queries       Query[]
+  tokenUsage    TokenUsage[]
+
+  @@map("users")
+}
+
+// Auth Provider enum
+enum AuthProvider {
+  Github
+  Google
+
+  @@map("auth_provider")
+}
+
+// Conversation model - represents a chat session
+model Conversation {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String   @default("New Conversation")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("conversations")
+}
+
+// Message model - represents individual messages in a conversation
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String      @map("conversation_id")
+  role           MessageRole
+  content        String      @db.Text
+  sources        Json?       @default("[]")
+  followUps      String[]    @default([]) @map("follow_ups")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+// Message Role enum
+enum MessageRole {
+  user
+  assistant
+  system
+
+  @@map("message_role")
+}
+
+// Query model - represents individual search queries (legacy/standalone)
+model Query {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  query     String   @db.Text
+  answer    String   @db.Text
+  followUps String[] @map("follow_ups")
+  sources   Json     @default("[]")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("queries")
+}
+
+// Token Usage model - tracks daily token consumption
+model TokenUsage {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  date         DateTime @default(now()) @db.Date
+  tokensUsed   Int      @default(0) @map("tokens_used")
+  requestCount Int      @default(0) @map("request_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+  @@map("token_usage")
+}

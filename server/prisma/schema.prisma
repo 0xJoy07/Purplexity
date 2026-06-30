@@ -17,11 +17,13 @@ model User {
   provider      AuthProvider
   name          String
   profileImage  String?        @map("profile_image")
+  dailyTokenLimit Int          @default(10000) @map("daily_token_limit")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
   
   conversations Conversation[]
   queries       Query[]
+  tokenUsage    TokenUsage[]
   
   @@map("users")
 }
@@ -91,4 +93,22 @@ model Query {
   @@index([userId])
   @@index([createdAt])
   @@map("queries")
+}
+
+// Token Usage model - tracks daily token consumption
+model TokenUsage {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  date        DateTime @default(now()) @db.Date
+  tokensUsed  Int      @default(0) @map("tokens_used")
+  requestCount Int     @default(0) @map("request_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+  @@map("token_usage")
 }
