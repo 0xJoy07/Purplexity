@@ -32,8 +32,11 @@ import {
 } from "./services/guest.service";
 import authRoutes from "./routes/auth.routes";
 import { requireAuth } from "./middleware/auth.middleware";
+import cors from "cors";
+import { signSession } from "./services/auth.service";
 
 const app = express();
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use("/auth", authRoutes);
@@ -350,7 +353,8 @@ app.post("/users/guest", async (req: Request, res: Response) => {
   try {
     const { dailyTokenLimit, expiresInHours } = req.body;
     const guest = await createGuestUser({ dailyTokenLimit, expiresInHours });
-    res.json(guest);
+    const token = signSession({ id: guest.userId, email: guest.email });
+    res.json({ ...guest, token });
   } catch (error) {
     console.error("Error creating guest user:", error);
     res.status(500).json({ error: "Failed to create guest user" });
