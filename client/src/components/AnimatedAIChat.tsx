@@ -32,26 +32,8 @@ import {
 } from "@/lib/api";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { ResponseStream } from "./ui/response-stream";
+import { ClaudeChatInput } from "./ui/claude-style-chat-input";
 
-const pacifico = Pacifico({ subsets: ['latin'], weight: '400' });
-function useAutoResizeTextarea(minHeight: number, maxHeight = 200) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const adjustHeight = useCallback((reset = false) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    textarea.style.height = `${minHeight}px`;
-    if (!reset) textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight)}px`;
-  }, [maxHeight, minHeight]);
-
-  useEffect(() => {
-    adjustHeight(true);
-    const resize = () => adjustHeight();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, [adjustHeight]);
-
-  return { textareaRef, adjustHeight };
-}
 
 interface AnimatedAIChatProps {
   activeConversationId: string | null;
@@ -68,14 +50,10 @@ const suggestions = [
 ];
 
 export function AnimatedAIChat({ activeConversationId, onConversationCreated, sidebarOpen }: AnimatedAIChatProps) {
-  const [value, setValue] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [newMessageId, setNewMessageId] = useState<string | null>(null);
-  const [inputFocused, setInputFocused] = useState(false);
-  const { textareaRef, adjustHeight } = useAutoResizeTextarea(54);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastLoadedIdRef = useRef<string | null>(null);
 
@@ -110,10 +88,8 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
   }, [messages, isTyping]);
 
   const submitQuery = async (query?: string) => {
-    const messageText = (query ?? value).trim();
+    const messageText = (query ?? "").trim();
     if (!messageText || isTyping) return;
-    setValue("");
-    adjustHeight(true);
     setIsTyping(true);
 
     const optimistic: Message = {
@@ -211,58 +187,37 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
     }
   };
 
-  const attachFile = () => setAttachments((current) => [...current, `research-${Math.floor(Math.random() * 1000)}.pdf`]);
+
   const hasMessages = messages.length > 0;
 
-  const composer = (compact = false) => (
-    <motion.div
-      className={cn(
-        "relative overflow-hidden rounded-[18px] border bg-surface transition-all duration-200",
-        inputFocused ? "border-border-focus shadow-[0_0_0_3px_rgba(22,139,134,0.08),0_12px_32px_rgba(36,39,33,0.08)]" : "border-border shadow-[0_8px_30px_rgba(31,34,28,0.07)]",
-      )}
-      initial={{ opacity: 0, y: compact ? 12 : 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
-    >
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(event) => { setValue(event.target.value); adjustHeight(); }}
-        onKeyDown={handleKeyDown}
-        onFocus={() => setInputFocused(true)}
-        onBlur={() => setInputFocused(false)}
-        placeholder={compact ? "Ask a follow-up…" : "Ask anything…"}
-        aria-label={compact ? "Ask a follow-up" : "Ask anything"}
-        className={cn("block w-full resize-none border-0 bg-transparent px-5 pt-4 text-[15px] leading-6 text-foreground outline-none placeholder:text-text-subtle", compact ? "min-h-[54px] pb-2" : "min-h-[72px] pb-3")}
-        style={{ overflow: "hidden" }}
-      />
+  const handleSendMessage = (data: {
+    message: string;
+    files: any[];
+    pastedContent: any[];
+    model: string;
+    isThinkingEnabled: boolean;
+  }) => {
+    // Basic text integration for now.
+    // If files or pasted content are present, append a note.
+    let fullQuery = data.message;
+    if (data.pastedContent.length > 0) {
+      fullQuery += `\n\n[Attached ${data.pastedContent.length} pasted snippets]`;
+    }
+    if (data.files.length > 0) {
+      fullQuery += `\n\n[Attached ${data.files.length} files]`;
+    }
+    submitQuery(fullQuery);
+  };
 
-      <AnimatePresence>
-        {attachments.length > 0 && (
-          <motion.div className="flex flex-wrap gap-2 px-4 pb-2" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-            {attachments.map((file, index) => (
-              <span key={`${file}-${index}`} className="flex items-center gap-2 rounded-lg bg-surface-hover px-2.5 py-1.5 text-xs text-text-muted">
-                <BookOpen className="h-3.5 w-3.5 text-accent" />{file}
-                <button type="button" onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-text-subtle hover:text-foreground"><X className="h-3 w-3" /></button>
-              </span>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+  const currentHour = new Date().getHours();
+  let greeting = 'Good morning';
+  if (currentHour >= 12 && currentHour < 18) {
+      greeting = 'Good afternoon';
+  } else if (currentHour >= 18) {
+      greeting = 'Good evening';
+  }
+  const userName = 'Guest'; // TODO: fetch from user context if available
 
-      <div className="flex items-center justify-between px-3 pb-3">
-        <div className="flex items-center gap-1">
-          <button type="button" className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium text-text-muted transition-colors hover:bg-surface-hover">
-            <Search className="h-3.5 w-3.5 text-accent" />Auto<ChevronDown className="h-3 w-3" />
-          </button>
-          <button type="button" onClick={attachFile} aria-label="Attach a file" className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-foreground"><Paperclip className="h-4 w-4" /></button>
-        </div>
-        <button type="button" onClick={() => submitQuery()} disabled={isTyping || !value.trim()} aria-label="Submit question" className={cn("flex h-9 w-9 items-center justify-center rounded-full transition-all", value.trim() ? "bg-accent text-white hover:bg-accent-hover" : "bg-surface-hover text-text-subtle")}>
-          {isTyping ? <LoaderCircle className="h-4 w-4 animate-spin text-white" /> : <ArrowUp className="h-4 w-4 text-white" />}
-        </button>
-      </div>
-    </motion.div>
-  );
 
   return (
     <section className={cn("relative flex h-screen min-w-0 flex-1 flex-col bg-background text-foreground transition-[margin] duration-200", sidebarOpen ? "lg:ml-[248px]" : "ml-0")}>
@@ -275,16 +230,34 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
       <AnimatePresence mode="wait">
         {!hasMessages && !isTyping ? (
           <motion.main key="welcome" className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-5 pb-10 pt-24" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -12 }}>
-            <div className="my-auto w-full max-w-[720px] py-10">
-              <motion.div className="mb-9 text-center" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
-                <div className="mx-auto mb-5 flex items-center justify-center">
-                  <img src="/logo.png" alt="Purplexity Logo" className="h-[42px] w-auto" />
-                </div>
-                <h1 className="text-[32px] font-medium tracking-[-0.045em] text-foreground sm:text-[38px]">Where knowledge begins</h1>
-                <p className="mt-3 text-sm text-text-muted">Ask a question. Get a clear answer with sources.</p>
-              </motion.div>
+            <div className="my-auto w-full max-w-[800px] py-10">
+              <div className="w-full mb-8 sm:mb-12 text-center animate-fade-in">
+                  <div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+                      <img src="/logo.png" alt="Logo" className="w-[42px] h-auto object-contain" />
+                  </div>
+                  <h1 className="text-3xl sm:text-4xl font-serif font-light text-foreground mb-3 tracking-tight">
+                      {greeting}, <span className="relative inline-block pb-2">
+                          {userName}
+                          <svg
+                              className="absolute w-[140%] h-[20px] -bottom-1 -left-[5%] text-accent"
+                              viewBox="0 0 140 24"
+                              fill="none"
+                              preserveAspectRatio="none"
+                              aria-hidden="true"
+                          >
+                              <path
+                                  d="M6 16 Q 70 24, 134 14"
+                                  stroke="currentColor"
+                                  strokeWidth="3"
+                                  strokeLinecap="round"
+                                  fill="none"
+                              />
+                          </svg>
+                      </span>
+                  </h1>
+              </div>
 
-              {composer()}
+              <ClaudeChatInput onSendMessage={handleSendMessage} compact={false} />
 
               <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {suggestions.map(({ icon: Icon, eyebrow, label, query }, index) => (
@@ -343,7 +316,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
                         <p className="mb-3 text-xs font-semibold text-foreground">Related</p>
                         <div className="space-y-1.5">
                           {message.followUps.map((followUp, index) => (
-                            <button key={`${followUp}-${index}`} type="button" onClick={() => { setValue(followUp); adjustHeight(); }} className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-sm text-text-muted transition-colors hover:bg-surface-hover hover:text-accent">
+                            <button key={`${followUp}-${index}`} type="button" onClick={() => { submitQuery(followUp); }} className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-sm text-text-muted transition-colors hover:bg-surface-hover hover:text-accent">
                               {followUp}<ArrowUp className="h-3.5 w-3.5 rotate-45" />
                             </button>
                           ))}
@@ -364,7 +337,9 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
             </div>
 
             <div className="border-t border-border bg-composer/95 px-4 pb-4 pt-3 backdrop-blur sm:px-8">
-              <div className="mx-auto w-full max-w-[760px]">{composer(true)}</div>
+              <div className="mx-auto w-full max-w-[760px]">
+                 <ClaudeChatInput onSendMessage={handleSendMessage} compact={true} />
+              </div>
             </div>
           </motion.main>
         )}

@@ -23,6 +23,17 @@
   --composer-bg: #fcfcf9;
   --button-secondary: #f8f8f5;
   --button-secondary-hover: #f2f4f1;
+  
+  --bg-0: var(--background);
+  --bg-000: var(--background);
+  --bg-100: var(--surface);
+  --bg-200: var(--surface-hover);
+  --bg-300: var(--border);
+  --text-100: var(--foreground);
+  --text-200: var(--foreground);
+  --text-300: var(--text-muted);
+  --text-400: var(--text-subtle);
+  --text-500: #999999;
 }
 
 .dark {
@@ -48,6 +59,17 @@
   --composer-bg: #0a0a0a;
   --button-secondary: #1a1a1a;
   --button-secondary-hover: #262626;
+
+  --bg-0: var(--background);
+  --bg-000: var(--background);
+  --bg-100: var(--surface);
+  --bg-200: var(--surface-hover);
+  --bg-300: var(--border);
+  --text-100: var(--foreground);
+  --text-200: var(--foreground);
+  --text-300: var(--text-muted);
+  --text-400: var(--text-subtle);
+  --text-500: #6B6B65;
 }
 
 @theme inline {
@@ -71,6 +93,32 @@
   --color-btn-secondary-hover: var(--button-secondary-hover);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
+
+  --color-bg-0: var(--bg-0);
+  --color-bg-000: var(--bg-000);
+  --color-bg-100: var(--bg-100);
+  --color-bg-200: var(--bg-200);
+  --color-bg-300: var(--bg-300);
+  --color-text-100: var(--text-100);
+  --color-text-200: var(--text-200);
+  --color-text-300: var(--text-300);
+  --color-text-400: var(--text-400);
+  --color-text-500: var(--text-500);
+  
+  --animate-fade-in: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
 }
 
 * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
