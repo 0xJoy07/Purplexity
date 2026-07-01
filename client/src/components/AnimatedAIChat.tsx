@@ -77,15 +77,19 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
   const [inputFocused, setInputFocused] = useState(false);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea(54);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { setConversationId(activeConversationId); }, [activeConversationId]);
+  const lastLoadedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (activeConversationId === lastLoadedIdRef.current) return;
+    lastLoadedIdRef.current = activeConversationId;
+    
+    setConversationId(activeConversationId);
     if (!activeConversationId) {
       setMessages([]);
       setNewMessageId(null);
       return;
     }
+
     const loadConversation = async () => {
       try {
         const guest = await getOrCreateGuestUser();
@@ -127,6 +131,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
         const conversation = await createConversation(guest.userId, guest.token);
         currentId = conversation.id;
         setConversationId(currentId);
+        lastLoadedIdRef.current = currentId; // IMPORTANT: Prevent wiping out optimistic message
         onConversationCreated(currentId);
       }
       setMessages((current) => [...current, optimistic]);
@@ -134,7 +139,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
       setNewMessageId(response.assistantMessage.id);
       setMessages((current) => [
         ...current.filter((message) => message.id !== optimistic.id),
-        response.userMessage,
+        { ...response.userMessage, id: optimistic.id }, // Keep optimistic ID to prevent re-animation
         response.assistantMessage,
       ]);
     } catch (error) {
@@ -321,7 +326,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
                     )}
 
                     <div className="max-w-[720px]" id={`message-content-${message.id}`}>
-                      {message.id === newMessageId ? <ResponseStream textStream={message.content} mode="fade" fadeDuration={600} onComplete={() => setNewMessageId(null)} /> : <MarkdownRenderer content={message.content} />}
+                      {message.id === newMessageId ? <ResponseStream textStream={message.content} mode="fade" speed={100} fadeDuration={600} onComplete={() => setNewMessageId(null)} /> : <MarkdownRenderer content={message.content} />}
                     </div>
 
                     {message.id !== newMessageId && (

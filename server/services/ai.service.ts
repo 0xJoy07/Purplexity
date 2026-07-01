@@ -52,16 +52,34 @@ export async function generateResponse(
   
   let parsedJson;
   try {
+    // Attempt direct parse first
     parsedJson = JSON.parse(raw);
   } catch (error) {
-    console.error("❌ Failed to parse JSON:", raw);
-    throw new Error("LLM returned invalid JSON");
+    // If direct parse fails, try extracting from markdown blocks
+    const match = raw.match(/```(?:json)?\n([\s\S]*?)\n```/);
+    if (match) {
+      try {
+        parsedJson = JSON.parse(match[1]);
+      } catch (e) {
+        console.error("❌ Failed to parse JSON from markdown block:", match[1]);
+      }
+    } else {
+      console.error("❌ Failed to parse JSON entirely:", raw);
+    }
   }
 
-  const result = schema.parse(parsedJson);
-
-  return {
-    answer: result.answer,
-    followUps: result.followUps,
-  };
+  try {
+    if (!parsedJson) throw new Error("No JSON parsed");
+    const result = schema.parse(parsedJson);
+    return {
+      answer: result.answer,
+      followUps: result.followUps,
+    };
+  } catch (err) {
+    console.error("❌ Schema validation or parse failed, falling back.", err);
+    return {
+      answer: "Sorry, I encountered an error while processing the response. Please try asking again.",
+      followUps: []
+    };
+  }
 }

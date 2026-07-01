@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { MarkdownRenderer } from "@/components/MarkdownRenderer"
+import { MarkdownRenderer, parseMarkdown } from "@/components/MarkdownRenderer"
 
 export type Mode = "typewriter" | "fade"
 
@@ -112,31 +112,9 @@ export function useTextStream({
 
   const updateSegments = useCallback((text: string) => {
     if (modeRef.current === "fade") {
-      try {
-        const segmenter = new Intl.Segmenter(navigator.language, {
-          granularity: "word",
-        })
-        const segmentIterator = segmenter.segment(text)
-        const newSegments = Array.from(segmentIterator).map(
-          (segment, index) => ({
-            text: segment.segment,
-            index,
-          })
-        )
-        setSegments(newSegments)
-      } catch (error) {
-        const newSegments = text
-          .split(/(\s+)/)
-          .filter(Boolean)
-          .map((word, index) => ({
-            text: word,
-            index,
-          }))
-        setSegments(newSegments)
-        onError?.(error)
-      }
+      // Not using segments array for fade anymore, handled by parsed HTML
     }
-  }, [onError])
+  }, [])
 
   const markComplete = useCallback(() => {
     if (!completedRef.current) {
@@ -296,10 +274,102 @@ export type ResponseStreamProps = {
   characterChunkSize?: number // Custom characters per frame for typewriter mode (overrides speed)
 }
 
+function FadeFormattedText({ 
+  text, 
+  speed = 50, 
+  fadeDuration = 600, 
+  segmentDelayOverride,
+  onComplete,
+  className,
+  as: Container = "div"
+}: { 
+  text: string; 
+  speed?: number; 
+  fadeDuration?: number; 
+  segmentDelayOverride?: number;
+  onComplete?: () => void;
+  className?: string;
+  as?: any;
+}) {
+  const [fadedHtml, setFadedHtml] = useState("");
+  
+  useEffect(() => {
+    const rawHtml = parseMarkdown(text);
+    if (typeof document === 'undefined') {
+      setFadedHtml(rawHtml);
+      return;
+    }
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(rawHtml, 'text/html');
+    let idx = 0;
+    
+    // faster speed = smaller delay. If segmentDelayOverride is provided, use it.
+    const segmentDelay = segmentDelayOverride ?? Math.max(1, Math.round(100 / Math.sqrt(speed)));
+    
+    function walk(node: Node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const textContent = node.textContent || '';
+        if (!textContent.trim() && !textContent.includes('\n')) return; // skip empty text nodes
+        
+        const words = textContent.split(/(\s+)/);
+        const fragment = document.createDocumentFragment();
+        
+        words.forEach(word => {
+          if (!word) return;
+          const isWhitespace = /^\s+$/.test(word);
+          const span = document.createElement('span');
+          span.className = 'fade-segment' + (isWhitespace ? ' fade-segment-space' : '');
+          span.style.animationDelay = `${idx * segmentDelay}ms`;
+          span.textContent = word;
+          fragment.appendChild(span);
+          if (!isWhitespace) idx++;
+        });
+        
+        node.parentNode?.replaceChild(fragment, node);
+      } else {
+        // Must convert to array because we might replace children which messes up iteration
+        Array.from(node.childNodes).forEach(child => walk(child));
+      }
+    }
+    
+    Array.from(doc.body.childNodes).forEach(child => walk(child));
+    setFadedHtml(doc.body.innerHTML);
+    
+    const totalDuration = idx * segmentDelay + fadeDuration;
+    const timer = setTimeout(() => {
+      onComplete?.();
+    }, totalDuration);
+    
+    return () => clearTimeout(timer);
+  }, [text, speed, fadeDuration, segmentDelayOverride, onComplete]);
+  
+  const fadeStyle = `
+    .fade-segment {
+      opacity: 0;
+      animation: fadeIn ${fadeDuration}ms forwards;
+    }
+    .fade-segment-space {
+      animation: none;
+      opacity: 1;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  `;
+  
+  return (
+    <Container className={className}>
+      <style>{fadeStyle}</style>
+      <div className="markdown-response" dangerouslySetInnerHTML={{ __html: fadedHtml }} />
+    </Container>
+  );
+}
+
 export function ResponseStream({
   textStream,
-  mode = "typewriter",
-  speed = 20,
+  mode = "fade",
+  speed = 50,
   className = "",
   onComplete,
   as = "div",
@@ -307,6 +377,18 @@ export function ResponseStream({
   segmentDelay,
   characterChunkSize,
 }: ResponseStreamProps) {
+  if (mode === "fade" && typeof textStream === "string") {
+    return <FadeFormattedText 
+      text={textStream} 
+      speed={speed} 
+      fadeDuration={fadeDuration} 
+      segmentDelayOverride={segmentDelay}
+      onComplete={onComplete}
+      className={className}
+      as={as}
+    />;
+  }
+
   const animationEndRef = useRef<(() => void) | null>(null)
 
   const {

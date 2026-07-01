@@ -17,7 +17,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
   );
 }
 
-function parseMarkdown(text: string): string {
+export function parseMarkdown(text: string): string {
   if (!text) return "";
 
   let html = text;
