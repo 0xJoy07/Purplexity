@@ -125,14 +125,42 @@ export async function deleteConversation(conversationId: string, token: string) 
 
 // ===== Messaging =====
 
-export async function sendMessage(conversationId: string, message: string, userId: string, token: string) {
+export async function sendMessage(
+  conversationId: string,
+  message: string,
+  userId: string,
+  token: string,
+  files?: File[]
+) {
+  let body: BodyInit;
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+  };
+
+  if (files && files.length > 0) {
+    // Multipart form data when files are attached
+    const formData = new FormData();
+    formData.append("message", message);
+    formData.append("userId", userId);
+    files.forEach((file) => {
+      console.log(`[sendMessage] Appending file: ${file.name} (${file.type}, ${file.size} bytes)`);
+      formData.append("files", file);
+    });
+    body = formData;
+    console.log(`[sendMessage] Sending FormData with ${files.length} file(s)`);
+    // Don't set Content-Type — browser sets it with boundary automatically
+  } else {
+    // Plain JSON when no files
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify({ message, userId });
+    console.log("[sendMessage] Sending JSON (no files)");
+  }
+
+  console.log(`[sendMessage] POST /conversations/${conversationId}/messages`);
   const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ message, userId }),
+    headers,
+    body,
   });
 
   if (!res.ok) {
@@ -157,6 +185,7 @@ export async function sendMessage(conversationId: string, message: string, userI
     assistantMessage: Message;
     sources: Source[];
     followUps: string[];
+    attachments?: { name: string; type: string; url: string }[];
     tokenUsage: any;
   }>;
 }

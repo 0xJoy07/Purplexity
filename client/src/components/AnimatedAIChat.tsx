@@ -87,7 +87,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const submitQuery = async (query?: string) => {
+  const submitQuery = async (query?: string, attachedFiles?: File[]) => {
     const messageText = (query ?? "").trim();
     if (!messageText || isTyping) return;
     setIsTyping(true);
@@ -111,7 +111,13 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
         onConversationCreated(currentId);
       }
       setMessages((current) => [...current, optimistic]);
-      const response = await sendMessage(currentId, messageText, guest.userId, guest.token);
+      const response = await sendMessage(
+        currentId,
+        messageText,
+        guest.userId,
+        guest.token,
+        attachedFiles && attachedFiles.length > 0 ? attachedFiles : undefined
+      );
       setNewMessageId(response.assistantMessage.id);
       setMessages((current) => [
         ...current.filter((message) => message.id !== optimistic.id),
@@ -197,16 +203,23 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
     model: string;
     isThinkingEnabled: boolean;
   }) => {
-    // Basic text integration for now.
-    // If files or pasted content are present, append a note.
+    console.log(`[handleSendMessage] message="${data.message}", files=${data.files.length}, pastedContent=${data.pastedContent.length}`);
+    
+    // Extract actual File objects from attached files
+    const actualFiles: File[] = data.files
+      .map((f: any) => f.file)
+      .filter((f: unknown): f is File => f instanceof File);
+
+    console.log(`[handleSendMessage] Extracted ${actualFiles.length} File objects:`, actualFiles.map(f => f.name));
+
+    // If pasted content is present, prepend it to the query as context
     let fullQuery = data.message;
     if (data.pastedContent.length > 0) {
-      fullQuery += `\n\n[Attached ${data.pastedContent.length} pasted snippets]`;
+      const pastedTexts = data.pastedContent.map((p: any) => p.content).join("\n\n---\n\n");
+      fullQuery += `\n\n[Pasted content]\n${pastedTexts}`;
     }
-    if (data.files.length > 0) {
-      fullQuery += `\n\n[Attached ${data.files.length} files]`;
-    }
-    submitQuery(fullQuery);
+
+    submitQuery(fullQuery, actualFiles);
   };
 
   const currentHour = new Date().getHours();

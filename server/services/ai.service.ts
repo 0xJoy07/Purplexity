@@ -21,10 +21,16 @@ export interface AIResponse {
 
 export async function generateResponse(
   query: string,
-  webSearchResults: WebSearchResult[]
+  webSearchResults: WebSearchResult[],
+  fileContext?: string
 ): Promise<AIResponse> {
   // Context engineering
+  const fileBlock = fileContext
+    ? `## Uploaded file content\n${fileContext}\n`
+    : "";
+
   const prompt = PROMPT_TEMPLATE
+    .replace("{{FILE_CONTEXT}}", fileBlock)
     .replace("{{WEB_SEARCH_RESULTS}}", JSON.stringify(webSearchResults))
     .replace("{{USER_QUERY}}", query);
 

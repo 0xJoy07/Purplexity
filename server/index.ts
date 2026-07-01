@@ -34,11 +34,28 @@ import authRoutes from "./routes/auth.routes";
 import { requireAuth } from "./middleware/auth.middleware";
 import cors from "cors";
 import { signSession } from "./services/auth.service";
+import path from "path";
+import fs from "fs";
+import { createRequire } from "module";
+import analyzeRouter from "./routes/analyze.routes";
+import { analyzeContent } from "./services/contentAnalyzer.service";
+
+// CJS require for multer (ESM compat with Bun)
+const _require = createRequire(import.meta.url);
+const multer = _require("multer");
+
+// Configure multer for conversation file uploads
+const conversationUpload = multer({
+  dest: path.join(import.meta.dir, "../uploads"),
+  limits: { fileSize: parseInt(process.env.MAX_UPLOAD_SIZE || "10485760") },
+});
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
+app.use("/uploads", express.static(path.join(__dirname, "../../public/uploads")));
+app.use(analyzeRouter);
 app.use("/auth", authRoutes);
 app.use("/conversations", requireAuth);
 app.use("/tokens", requireAuth);
@@ -154,12 +171,27 @@ app.get("/conversations/:conversationId", async (req: Request, res: Response) =>
   }
 });
 
-// Send a message in a conversation (with AI response)
-app.post("/conversations/:conversationId/messages", checkTokenLimit, async (req: Request, res: Response) => {
+// Send a message in a conversation (with AI response + optional file attachments)
+app.post(
+  "/conversations/:conversationId/messages",
+  conversationUpload.array("files", 5),
+  // After multer parses multipart body, restore userId from auth if needed
+  (req: Request, _res: Response, next: any) => {
+    const authReq = req as any;
+    if (authReq.auth?.userId && !req.body.userId) {
+      req.body.userId = authReq.auth.userId;
+    }
+    const fileCount = (authReq.files as any[])?.length ?? 0;
+    console.log(`[messages] Incoming: message="${req.body.message?.slice(0, 50)}", files=${fileCount}, userId=${req.body.userId}`);
+    next();
+  },
+  checkTokenLimit,
+  async (req: Request, res: Response) => {
   try {
     const conversationId = req.params.conversationId as string;
-    const { message } = req.body;
-    const userId = req.body.userId
+    const message = req.body.message as string;
+    const userId = req.body.userId || (req as any).auth?.userId;
+    const uploadedFiles = (req as any).files as any[] | undefined;
 
     if (!message) {
       res.status(400).json({ error: "message is required" });
@@ -175,26 +207,66 @@ app.post("/conversations/:conversationId/messages", checkTokenLimit, async (req:
       return;
     }
 
-    // Web search
+    // ── Step 1: Analyse attached files (if any) ────────────────────────────
+    let fileContext = "";
+    const fileInfos: { name: string; type: string; url: string }[] = [];
+
+    if (uploadedFiles && uploadedFiles.length > 0) {
+      console.log(`Analyzing ${uploadedFiles.length} attached file(s)...`);
+
+      for (const file of uploadedFiles) {
+        try {
+          const analysis = await analyzeContent(file.path, file.mimetype);
+          console.log(`  ✔ ${file.originalname}: ${analysis.wordCount} words via ${analysis.method}`);
+
+          // Build context block for each file
+          const truncatedText = analysis.text.length > 8000
+            ? analysis.text.slice(0, 8000) + "\n[…content truncated…]"
+            : analysis.text;
+
+          fileContext += `\n### File: ${file.originalname}\n`;
+          fileContext += `Type: ${analysis.fileType} (${analysis.detectedMime})\n`;
+          fileContext += `Words: ${analysis.wordCount} | Characters: ${analysis.charCount}\n`;
+          if (analysis.links.length > 0) {
+            fileContext += `Links found: ${analysis.links.slice(0, 5).join(", ")}\n`;
+          }
+          fileContext += `\nContent:\n${truncatedText}\n`;
+
+          // Move file to public uploads
+          const publicDir = path.join(import.meta.dir, "../public/uploads");
+          if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
+          const safeName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+          fs.renameSync(file.path, path.join(publicDir, safeName));
+          fileInfos.push({ name: file.originalname, type: analysis.fileType, url: `/uploads/${safeName}` });
+        } catch (err) {
+          console.error(`  ✖ Failed to analyze ${file.originalname}:`, err);
+        }
+      }
+    }
+
+    // ── Step 2: Tavily web search ───────────────────────────────────────────
     console.log("Searching the web...");
     const webSearchResults = await searchWeb(message);
     console.log(`Found ${webSearchResults.length} results`);
 
-    // Generate AI response
+    // ── Step 3: Generate AI response (with file context if present) ────────
     console.log("Generating AI response...");
-    const aiResponse = await generateResponse(message, webSearchResults);
+    const aiResponse = await generateResponse(
+      message,
+      webSearchResults,
+      fileContext || undefined
+    );
     console.log("Response generated");
 
-    // Calculate tokens used
+    // ── Step 4: Token accounting ────────────────────────────────────────────
     const webResultsText = JSON.stringify(webSearchResults);
-    const tokensUsed = calculateRequestTokens(message, webResultsText, aiResponse.answer);
+    const tokensUsed = calculateRequestTokens(message + fileContext, webResultsText, aiResponse.answer);
     console.log(`Tokens used: ${tokensUsed}`);
 
-    // Track token usage
     const tokenInfo = await trackTokenUsage(userId, tokensUsed);
     console.log(`Tokens remaining: ${tokenInfo.tokensRemaining}`);
 
-    // Save both messages to conversation
+    // ── Step 5: Save messages to conversation ──────────────────────────────
     const sources = webSearchResults.map((r) => ({ title: r.title, url: r.url }));
     const { userMsg, assistantMsg } = await addMessageToConversation(
       conversationId,
@@ -214,6 +286,7 @@ app.post("/conversations/:conversationId/messages", checkTokenLimit, async (req:
       assistantMessage: assistantMsg,
       sources,
       followUps: aiResponse.followUps,
+      attachments: fileInfos,
       tokenUsage: {
         tokensUsed,
         tokensRemaining: tokenInfo.tokensRemaining,
