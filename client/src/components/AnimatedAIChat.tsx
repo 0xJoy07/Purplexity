@@ -20,6 +20,7 @@ import {
   Search,
   Sparkles,
   X,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -30,7 +31,7 @@ import {
   sendMessage,
 } from "@/lib/api";
 import { MarkdownRenderer } from "./MarkdownRenderer";
-import { TypewriterText } from "./TypewriterText";
+import { ResponseStream } from "./ui/response-stream";
 
 const pacifico = Pacifico({ subsets: ['latin'], weight: '400' });
 function useAutoResizeTextarea(minHeight: number, maxHeight = 200) {
@@ -141,6 +142,40 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
       setMessages((current) => current.filter((message) => message.id !== optimistic.id));
     } finally {
       setIsTyping(false);
+    }
+  };
+
+  const handleDownload = async (message: Message, format: "pdf" | "docx" | "md") => {
+    try {
+      if (format === "md") {
+        const { saveAs } = await import("file-saver");
+        const blob = new Blob([message.content], { type: "text/markdown;charset=utf-8" });
+        saveAs(blob, `purplexity-response-${message.id}.md`);
+      } else if (format === "pdf") {
+        const html2pdf = (await import("html2pdf.js")).default;
+        const element = document.getElementById(`message-content-${message.id}`);
+        if (element) {
+          const opt = {
+            margin: 10,
+            filename: `purplexity-response-${message.id}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+          };
+          html2pdf().set(opt).from(element).save();
+        }
+      } else if (format === "docx") {
+        const { asBlob } = await import("html-docx-js-typescript");
+        const { saveAs } = await import("file-saver");
+        const element = document.getElementById(`message-content-${message.id}`);
+        if (element) {
+          const htmlString = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${element.innerHTML}</body></html>`;
+          const blob = await asBlob(htmlString);
+          saveAs(blob as Blob, `purplexity-response-${message.id}.docx`);
+        }
+      }
+    } catch (err) {
+      console.error("Export failed", err);
     }
   };
 
@@ -265,11 +300,20 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
                       </div>
                     )}
 
-                    <div className="max-w-[720px]">
-                      {message.id === newMessageId ? <TypewriterText content={message.content} speed={12} onComplete={() => setNewMessageId(null)} /> : <MarkdownRenderer content={message.content} />}
+                    <div className="max-w-[720px]" id={`message-content-${message.id}`}>
+                      {message.id === newMessageId ? <ResponseStream textStream={message.content} mode="fade" fadeDuration={600} onComplete={() => setNewMessageId(null)} /> : <MarkdownRenderer content={message.content} />}
                     </div>
 
-                    {message.followUps && message.followUps.length > 0 && (
+                    {message.id !== newMessageId && (
+                      <div className="mt-4 flex items-center gap-2">
+                        <span className="text-[11px] font-semibold text-[#999a93] uppercase tracking-wider">Export</span>
+                        <button type="button" onClick={() => handleDownload(message, 'pdf')} className="flex items-center gap-1 rounded border border-[#e1e1dc] bg-[#f8f8f5] px-2 py-1 text-xs text-[#5f605a] hover:bg-[#f2f4f1] transition-colors"><Download className="h-3 w-3" /> PDF</button>
+                        <button type="button" onClick={() => handleDownload(message, 'docx')} className="flex items-center gap-1 rounded border border-[#e1e1dc] bg-[#f8f8f5] px-2 py-1 text-xs text-[#5f605a] hover:bg-[#f2f4f1] transition-colors"><Download className="h-3 w-3" /> DOCX</button>
+                        <button type="button" onClick={() => handleDownload(message, 'md')} className="flex items-center gap-1 rounded border border-[#e1e1dc] bg-[#f8f8f5] px-2 py-1 text-xs text-[#5f605a] hover:bg-[#f2f4f1] transition-colors"><Download className="h-3 w-3" /> MD</button>
+                      </div>
+                    )}
+
+                    {message.id !== newMessageId && message.followUps && message.followUps.length > 0 && (
                       <div className="mt-7 border-t border-[#e7e7e1] pt-5">
                         <p className="mb-3 text-xs font-semibold text-[#4a4b45]">Related</p>
                         <div className="space-y-1.5">

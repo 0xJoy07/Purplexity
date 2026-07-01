@@ -33,11 +33,7 @@ button:disabled { cursor: default; }
 .sidebar-item:hover .sidebar-delete { opacity: 1; }
 .sidebar-delete { opacity: 0; transition: opacity 150ms ease; }
 
-@keyframes blink-cursor { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-.typewriter-cursor { display: inline-block; width: 2px; height: 1.05em; margin-left: 2px; vertical-align: text-bottom; background: var(--accent); animation: blink-cursor 0.8s ease-in-out infinite; }
-.typewriter-cursor.fade-out { animation: blink-cursor 0.8s ease-in-out infinite; }
-
-.markdown-response { color: #30312c; font-size: 0.97rem; line-height: 1.78; }
+.markdown-response { color: #111111; font-size: 0.97rem; line-height: 1.78; }
 .markdown-response p { margin: 0 0 1em; }
 .markdown-response p:last-child { margin-bottom: 0; }
 .markdown-response strong { color: #171814; font-weight: 650; }

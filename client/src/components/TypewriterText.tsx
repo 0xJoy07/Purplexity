@@ -82,9 +82,6 @@ export function TypewriterText({
   return (
     <div className={`relative ${className}`}>
       <MarkdownRenderer content={displayedText} />
-      {!isComplete && (
-        <span className="typewriter-cursor" />
-      )}
     </div>
   );
 }
