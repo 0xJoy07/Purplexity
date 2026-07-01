@@ -3,41 +3,98 @@
 :root {
   --background: #fcfcf9;
   --foreground: #20211d;
+  --surface: #ffffff;
+  --surface-hover: #f2f2ee;
+  --surface-active: #e4efed;
+  
+  --border: #e1e1dc;
+  --border-subtle: #ecece7;
+  --border-focus: #9ebfbc;
+  
+  --text-muted: #777871;
+  --text-subtle: #a0a19a;
+  
   --accent: #168b86;
-  --accent-soft: #e4f1ef;
-  --border: #deded8;
+  --accent-hover: #117a75;
+  --accent-soft: #e7f1ef;
+  
+  --sidebar-bg: #f7f7f4;
+  --sidebar-border: #e5e5df;
+  --composer-bg: #fcfcf9;
+  --button-secondary: #f8f8f5;
+  --button-secondary-hover: #f2f4f1;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #e5e5e5;
+  --surface: #141414;
+  --surface-hover: #1f1f1f;
+  --surface-active: #1c2b2a;
+  
+  --border: #262626;
+  --border-subtle: #1a1a1a;
+  --border-focus: #19a49f;
+  
+  --text-muted: #999999;
+  --text-subtle: #666666;
+  
+  --accent: #19a49f;
+  --accent-hover: #1cd4cd;
+  --accent-soft: #102422;
+  
+  --sidebar-bg: #0d0d0d;
+  --sidebar-border: #222222;
+  --composer-bg: #0a0a0a;
+  --button-secondary: #1a1a1a;
+  --button-secondary-hover: #262626;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-focus: var(--border-focus);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-composer: var(--composer-bg);
+  --color-btn-secondary: var(--button-secondary);
+  --color-btn-secondary-hover: var(--button-secondary-hover);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }
 
-* { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: #d2d2cc transparent; }
+* { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 html, body { height: 100%; }
 body { margin: 0; overflow: hidden; background: var(--background); color: var(--foreground); font-family: var(--font-sans), system-ui, -apple-system, sans-serif; }
 button, textarea { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: default; }
-::selection { background: #cce7e4; }
+::selection { background: var(--accent-soft); color: var(--foreground); }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { border-radius: 999px; background: #d2d2cc; }
+::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--border); }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-.purplexity-mark { display: grid; width: 27px; height: 27px; place-items: center; border: 1.5px solid #168b86; color: #168b86; font-family: Georgia, serif; font-size: 14px; font-weight: 700; line-height: 1; transform: rotate(45deg); }
-.purplexity-mark > span { transform: rotate(-45deg); }
+
 .sidebar-item:hover .sidebar-delete { opacity: 1; }
 .sidebar-delete { opacity: 0; transition: opacity 150ms ease; }
 
-.markdown-response { color: #111111; font-size: 0.97rem; line-height: 1.78; }
+.markdown-response { color: var(--foreground); font-size: 0.97rem; line-height: 1.78; }
 .markdown-response p { margin: 0 0 1em; }
 .markdown-response p:last-child { margin-bottom: 0; }
-.markdown-response strong { color: #171814; font-weight: 650; }
-.markdown-response h1, .markdown-response h2, .markdown-response h3 { margin: 1.5em 0 0.6em; color: #171814; font-weight: 650; letter-spacing: -0.02em; line-height: 1.3; }
+.markdown-response strong { color: var(--foreground); font-weight: 650; }
+.markdown-response h1, .markdown-response h2, .markdown-response h3 { margin: 1.5em 0 0.6em; color: var(--foreground); font-weight: 650; letter-spacing: -0.02em; line-height: 1.3; }
 .markdown-response h1 { font-size: 1.4rem; }
 .markdown-response h2 { font-size: 1.2rem; }
 .markdown-response h3 { font-size: 1.05rem; }
@@ -46,10 +103,10 @@ button:disabled { cursor: default; }
 .markdown-response ol { list-style-type: decimal; }
 .markdown-response li { margin-bottom: 0.45em; padding-left: 0.2em; }
 .markdown-response li::marker { color: var(--accent); }
-.markdown-response code { border: 1px solid #dfe4e2; border-radius: 5px; background: #f1f5f3; color: #176f6b; padding: 0.12em 0.38em; font-family: var(--font-mono), monospace; font-size: 0.88em; }
-.markdown-response pre { overflow-x: auto; margin: 1em 0; border: 1px solid #dfdfda; border-radius: 10px; background: #f6f6f2; padding: 1em; }
-.markdown-response pre code { border: 0; background: transparent; color: #34352f; padding: 0; }
-.markdown-response a { color: #117b76; text-decoration: underline; text-decoration-color: #9bc9c6; text-underline-offset: 3px; }
-.markdown-response blockquote { margin: 1em 0; border-left: 3px solid var(--accent); padding-left: 1em; color: #6d6e67; }
-.markdown-response hr { margin: 1.5em 0; border: 0; border-top: 1px solid #e1e1dc; }
+.markdown-response code { border: 1px solid var(--border); border-radius: 5px; background: var(--surface-active); color: var(--accent); padding: 0.12em 0.38em; font-family: var(--font-mono), monospace; font-size: 0.88em; }
+.markdown-response pre { overflow-x: auto; margin: 1em 0; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--surface-hover); padding: 1em; }
+.markdown-response pre code { border: 0; background: transparent; color: var(--foreground); padding: 0; }
+.markdown-response a { color: var(--accent); text-decoration: underline; text-decoration-color: var(--border-focus); text-underline-offset: 3px; }
+.markdown-response blockquote { margin: 1em 0; border-left: 3px solid var(--accent); padding-left: 1em; color: var(--text-muted); }
+.markdown-response hr { margin: 1.5em 0; border: 0; border-top: 1px solid var(--border); }
 @media (max-width: 640px) { .markdown-response { font-size: 0.92rem; } }
