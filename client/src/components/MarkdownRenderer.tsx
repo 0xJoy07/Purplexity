@@ -97,6 +97,23 @@ function processLists(html: string): string {
       }
       result.push(`<li>${olMatch[2]}</li>`);
     } else {
+      // If it's a blank line, check if the NEXT non-blank line is also a list item
+      if (line.trim() === "") {
+        let nextNonBlank = i + 1;
+        while(nextNonBlank < lines.length && lines[nextNonBlank].trim() === "") {
+          nextNonBlank++;
+        }
+        if (nextNonBlank < lines.length) {
+          const nextLine = lines[nextNonBlank];
+          if (inUl && nextLine.match(/^[\s]*[-*+] (.+)$/)) {
+            continue; // skip the blank line, stay in UL
+          }
+          if (inOl && nextLine.match(/^[\s]*(\d+)\. (.+)$/)) {
+            continue; // skip the blank line, stay in OL
+          }
+        }
+      }
+
       if (inUl) { result.push("</ul>"); inUl = false; }
       if (inOl) { result.push("</ol>"); inOl = false; }
       result.push(line);

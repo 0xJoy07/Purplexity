@@ -147,14 +147,29 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
 
   const handleDownload = async (message: Message, format: "pdf" | "docx" | "md") => {
     try {
+      // Find the user question that precedes this message
+      const msgIndex = messages.findIndex(m => m.id === message.id);
+      const userMessage = msgIndex > 0 ? messages[msgIndex - 1] : null;
+      const questionText = userMessage && userMessage.role === "user" ? userMessage.content : "Question";
+
       if (format === "md") {
         const { saveAs } = await import("file-saver");
-        const blob = new Blob([message.content], { type: "text/markdown;charset=utf-8" });
+        const mdContent = `# ${questionText}\n\n${message.content}`;
+        const blob = new Blob([mdContent], { type: "text/markdown;charset=utf-8" });
         saveAs(blob, `purplexity-response-${message.id}.md`);
       } else if (format === "pdf") {
         const html2pdf = (await import("html2pdf.js")).default;
         const element = document.getElementById(`message-content-${message.id}`);
         if (element) {
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = `
+            <div style="margin-bottom: 20px;">
+              <h2 style="font-family: sans-serif; color: #20211d; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e5e5df;">
+                ${questionText}
+              </h2>
+            </div>
+            <div>${element.innerHTML}</div>
+          `;
           const opt = {
             margin: 10,
             filename: `purplexity-response-${message.id}.pdf`,
@@ -162,14 +177,19 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
             html2canvas: { scale: 2 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
           };
-          html2pdf().set(opt).from(element).save();
+          html2pdf().set(opt).from(wrapper).save();
         }
       } else if (format === "docx") {
         const { asBlob } = await import("html-docx-js-typescript");
         const { saveAs } = await import("file-saver");
         const element = document.getElementById(`message-content-${message.id}`);
         if (element) {
-          const htmlString = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${element.innerHTML}</body></html>`;
+          const htmlString = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>
+            <h2 style="font-family: sans-serif; color: #20211d; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e5e5df;">
+              ${questionText}
+            </h2>
+            ${element.innerHTML}
+          </body></html>`;
           const blob = await asBlob(htmlString);
           saveAs(blob as Blob, `purplexity-response-${message.id}.docx`);
         }
