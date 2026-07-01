@@ -47,7 +47,7 @@ export async function getOrCreateGuestUser() {
   const res = await fetch(`${API_BASE}/users/guest`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dailyTokenLimit: 1000, expiresInHours: 24 }),
+    body: JSON.stringify({ dailyTokenLimit: 50000, expiresInHours: 24 }),
   });
 
   if (!res.ok) {
@@ -136,7 +136,13 @@ export async function sendMessage(conversationId: string, message: string, userI
   });
 
   if (!res.ok) {
-    throw new Error("Failed to send message");
+    let errMsg = "Failed to send message";
+    try {
+      const data = await res.json();
+      if (data.message) errMsg = data.message;
+      else if (data.error) errMsg = data.error;
+    } catch (e) {}
+    throw new Error(errMsg);
   }
 
   return res.json() as Promise<{

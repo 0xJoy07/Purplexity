@@ -1,22 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Compass, History, Home, Library, PanelLeftClose, PanelLeftOpen, Plus, Search, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  MessageSquarePlus,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  MessagesSquare,
-  Clock,
-} from "lucide-react";
 import type { ConversationSummary } from "@/lib/api";
-import {
-  getUserConversations,
-  deleteConversation as apiDeleteConversation,
-  getOrCreateGuestUser,
-} from "@/lib/api";
+import { deleteConversation as apiDeleteConversation, getOrCreateGuestUser, getUserConversations } from "@/lib/api";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -24,17 +13,10 @@ interface SidebarProps {
   activeConversationId: string | null;
   onSelectConversation: (conversationId: string) => void;
   onNewChat: () => void;
-  refreshTrigger: number; // increment this to force refresh
+  refreshTrigger: number;
 }
 
-export function Sidebar({
-  isOpen,
-  onToggle,
-  activeConversationId,
-  onSelectConversation,
-  onNewChat,
-  refreshTrigger,
-}: SidebarProps) {
+export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConversation, onNewChat, refreshTrigger }: SidebarProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -44,252 +26,107 @@ export function Sidebar({
       setIsLoading(true);
       const guest = await getOrCreateGuestUser();
       if (!guest) return;
-      const convs = await getUserConversations(guest.userId, guest.token);
-      // Sort by most recent first
-      const sorted = convs.sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      );
-      setConversations(sorted);
-    } catch (err) {
-      console.error("Failed to fetch conversations:", err);
+      const items = await getUserConversations(guest.userId, guest.token);
+      setConversations(items.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+    } catch (error) {
+      console.error("Failed to fetch conversations:", error);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchConversations();
-  }, [fetchConversations, refreshTrigger]);
+  useEffect(() => { fetchConversations(); }, [fetchConversations, refreshTrigger]);
 
-  const handleDelete = async (
-    e: React.MouseEvent,
-    conversationId: string
-  ) => {
-    e.stopPropagation();
+  const handleDelete = async (event: React.MouseEvent, conversationId: string) => {
+    event.stopPropagation();
     try {
       setDeletingId(conversationId);
       const guest = await getOrCreateGuestUser();
       if (!guest) return;
       await apiDeleteConversation(conversationId, guest.token);
-      setConversations((prev) =>
-        prev.filter((c) => c.id !== conversationId)
-      );
-      // If we're deleting the active conversation, start a new chat
-      if (activeConversationId === conversationId) {
-        onNewChat();
-      }
-    } catch (err) {
-      console.error("Failed to delete conversation:", err);
+      setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
+      if (activeConversationId === conversationId) onNewChat();
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
     } finally {
       setDeletingId(null);
     }
   };
 
-  const formatTimestamp = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
-
-  // Group conversations by time period
-  const groupConversations = (convs: ConversationSummary[]) => {
-    const today: ConversationSummary[] = [];
-    const yesterday: ConversationSummary[] = [];
-    const thisWeek: ConversationSummary[] = [];
-    const older: ConversationSummary[] = [];
-
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterdayStart = new Date(todayStart.getTime() - 86400000);
-    const weekStart = new Date(todayStart.getTime() - 7 * 86400000);
-
-    convs.forEach((c) => {
-      const date = new Date(c.updatedAt);
-      if (date >= todayStart) today.push(c);
-      else if (date >= yesterdayStart) yesterday.push(c);
-      else if (date >= weekStart) thisWeek.push(c);
-      else older.push(c);
-    });
-
-    return { today, yesterday, thisWeek, older };
-  };
-
-  const groups = groupConversations(conversations);
-
-  const renderGroup = (label: string, items: ConversationSummary[]) => {
-    if (items.length === 0) return null;
-    return (
-      <div key={label} className="mb-4">
-        <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/25">
-          {label}
-        </div>
-        {items.map((conv) => (
-          <motion.button
-            key={conv.id}
-            onClick={() => onSelectConversation(conv.id)}
-            className={cn(
-              "sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all group",
-              activeConversationId === conv.id
-                ? "bg-violet-500/15 text-white border border-violet-500/20"
-                : "text-white/60 hover:text-white/90 hover:bg-white/[0.04]"
-            )}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            whileHover={{ x: 2 }}
-            transition={{ duration: 0.15 }}
-          >
-            <MessagesSquare
-              className={cn(
-                "w-4 h-4 shrink-0",
-                activeConversationId === conv.id
-                  ? "text-violet-400"
-                  : "text-white/30"
-              )}
-            />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm truncate font-medium">
-                {conv.title || "New Conversation"}
-              </div>
-              <div className="flex items-center gap-1 mt-0.5">
-                <Clock className="w-2.5 h-2.5 text-white/20" />
-                <span className="text-[10px] text-white/25">
-                  {formatTimestamp(conv.updatedAt)}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={(e) => handleDelete(e, conv.id)}
-              disabled={deletingId === conv.id}
-              className={cn(
-                "sidebar-delete p-1.5 rounded-md text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all",
-                deletingId === conv.id && "opacity-50"
-              )}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </motion.button>
-        ))}
-      </div>
-    );
-  };
+  const navItems = [
+    { label: "Home", icon: Home, active: true },
+    { label: "Discover", icon: Compass, active: false },
+    { label: "Library", icon: Library, active: false },
+  ];
 
   return (
     <>
-      {/* Toggle button (always visible) */}
-      <motion.button
-        onClick={onToggle}
-        className={cn(
-          "fixed top-4 z-50 p-2 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-white/60 hover:text-white transition-all backdrop-blur-sm",
-          isOpen ? "left-[268px]" : "left-4"
-        )}
-        animate={{ left: isOpen ? 268 : 16 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        whileTap={{ scale: 0.92 }}
-      >
-        {isOpen ? (
-          <ChevronLeft className="w-4 h-4" />
-        ) : (
-          <ChevronRight className="w-4 h-4" />
-        )}
-      </motion.button>
+      {!isOpen && (
+        <button type="button" onClick={onToggle} aria-label="Open sidebar" className="fixed left-3 top-3 z-50 flex h-10 w-10 items-center justify-center rounded-xl border border-[#deded9] bg-[#fcfcf9] text-[#6f706b] shadow-sm transition-colors hover:bg-[#f1f1ed] hover:text-[#171714]">
+          <PanelLeftOpen className="h-[18px] w-[18px]" />
+        </button>
+      )}
 
-      {/* Sidebar panel */}
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {isOpen && (
-          <motion.aside
-            className="fixed left-0 top-0 bottom-0 z-40 w-[280px] bg-[#0d0d0f]/95 backdrop-blur-xl border-r border-white/[0.06] flex flex-col"
-            initial={{ x: -280, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -280, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          >
-            {/* Logo */}
-            <div className="p-5 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-                  <span className="text-white font-bold text-sm">P</span>
-                </div>
-                <h1 className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-300 to-indigo-300">
-                  Purplexity
-                </h1>
-              </div>
+          <motion.aside className="fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r border-[#e5e5df] bg-[#f7f7f4]" initial={{ x: -248 }} animate={{ x: 0 }} exit={{ x: -248 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
+            <div className="flex h-16 items-center justify-between px-3">
+              <button type="button" onClick={onNewChat} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[#191a17]">
+                <span className="purplexity-mark" aria-hidden="true"><span>P</span></span>
+                <span className="text-[17px] font-semibold tracking-[-0.03em]">purplexity</span>
+              </button>
+              <button type="button" onClick={onToggle} aria-label="Close sidebar" className="rounded-lg p-2 text-[#8a8b85] transition-colors hover:bg-[#eaeae5] hover:text-[#22231f]">
+                <PanelLeftClose className="h-[18px] w-[18px]" />
+              </button>
             </div>
 
-            {/* New Chat Button */}
             <div className="px-3 pb-3">
-              <motion.button
-                onClick={onNewChat}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-gradient-to-r from-violet-600/20 to-indigo-600/20 hover:from-violet-600/30 hover:to-indigo-600/30 border border-violet-500/20 text-white/90 text-sm font-medium transition-all"
-              >
-                <MessageSquarePlus className="w-4 h-4 text-violet-400" />
-                <span>New Chat</span>
-              </motion.button>
+              <button type="button" onClick={onNewChat} className="flex h-10 w-full items-center gap-3 rounded-lg border border-[#ddddd7] bg-white px-3 text-sm font-medium text-[#33342f] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors hover:border-[#c9c9c2]">
+                <Plus className="h-4 w-4 text-[#168b86]" />
+                New thread
+                <span className="ml-auto text-[11px] font-normal text-[#a1a29c]">Ctrl I</span>
+              </button>
             </div>
 
-            {/* Divider */}
-            <div className="mx-3 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+            <nav className="space-y-0.5 px-3">
+              {navItems.map(({ label, icon: Icon, active }) => (
+                <button key={label} type="button" className={cn("flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm transition-colors", active ? "bg-[#e9e9e4] font-medium text-[#20211d]" : "text-[#6d6e68] hover:bg-[#ededE8] hover:text-[#252621]")}>
+                  <Icon className="h-[17px] w-[17px]" />{label}
+                </button>
+              ))}
+            </nav>
 
-            {/* Conversations List */}
-            <div className="flex-1 overflow-y-auto p-2 pt-3">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="flex items-center gap-2 text-white/30 text-xs">
-                    <div className="w-3 h-3 border-2 border-white/20 border-t-violet-400 rounded-full animate-spin" />
-                    Loading...
-                  </div>
-                </div>
-              ) : conversations.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                  <MessagesSquare className="w-8 h-8 text-white/10 mb-3" />
-                  <p className="text-xs text-white/25">No conversations yet</p>
-                  <p className="text-[10px] text-white/15 mt-1">
-                    Start a new chat to begin
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {renderGroup("Today", groups.today)}
-                  {renderGroup("Yesterday", groups.yesterday)}
-                  {renderGroup("This Week", groups.thisWeek)}
-                  {renderGroup("Older", groups.older)}
-                </>
-              )}
-            </div>
+            <div className="mx-4 my-4 h-px bg-[#e1e1dc]" />
 
-            {/* Bottom section */}
-            <div className="p-3 border-t border-white/[0.04]">
-              <div className="flex items-center gap-2 px-2 py-2 text-[11px] text-white/20">
-                <div className="w-2 h-2 rounded-full bg-emerald-500/50" />
-                <span>Guest Session</span>
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex items-center gap-2 px-5 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-[#989991]"><History className="h-3.5 w-3.5" />Recent</div>
+              <div className="no-scrollbar flex-1 overflow-y-auto px-2">
+                {isLoading ? (
+                  <div className="px-3 py-5 text-xs text-[#9b9c95]">Loading threads…</div>
+                ) : conversations.length === 0 ? (
+                  <div className="px-3 py-5 text-xs leading-5 text-[#9b9c95]">Your research threads will appear here.</div>
+                ) : conversations.map((conversation) => (
+                  <button key={conversation.id} type="button" onClick={() => onSelectConversation(conversation.id)} className={cn("sidebar-item group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] transition-colors", activeConversationId === conversation.id ? "bg-[#e4efed] font-medium text-[#176f6b]" : "text-[#64655f] hover:bg-[#ecece7] hover:text-[#292a25]")}>
+                    <Search className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                    <span className="min-w-0 flex-1 truncate">{conversation.title || "New thread"}</span>
+                    <span role="button" tabIndex={0} onClick={(event) => handleDelete(event, conversation.id)} className={cn("sidebar-delete rounded p-1 text-[#999a94] hover:bg-[#deded8] hover:text-[#b34a46]", deletingId === conversation.id && "opacity-40")}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </span>
+                  </button>
+                ))}
               </div>
+            </div>
+
+            <div className="m-3 rounded-xl border border-[#e1e1db] bg-[#fbfbf8] p-3">
+              <p className="text-xs font-medium text-[#383934]">Guest workspace</p>
+              <p className="mt-1 text-[11px] leading-4 text-[#92938c]">Sign in to sync your research.</p>
             </div>
           </motion.aside>
         )}
       </AnimatePresence>
 
-      {/* Mobile overlay */}
       <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onToggle}
-          />
-        )}
+        {isOpen && <motion.button type="button" aria-label="Close sidebar overlay" className="fixed inset-0 z-30 bg-black/20 lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onToggle} />}
       </AnimatePresence>
     </>
   );

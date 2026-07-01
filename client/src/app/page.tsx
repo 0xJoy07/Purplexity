@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { AnimatedAIChat } from "@/components/AnimatedAIChat";
 import { Sidebar } from "@/components/Sidebar";
-import { getOrCreateGuestUser, getConversation } from "@/lib/api";
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  useEffect(() => {
+    if (window.innerWidth >= 1024) setSidebarOpen(true);
+  }, []);
 
   const handleNewChat = useCallback(() => {
     setActiveConversationId(null);
@@ -29,7 +32,7 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="bg-[#0A0A0B] h-screen flex overflow-hidden">
+    <main className="flex h-screen overflow-hidden bg-[#fcfcf9]">
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((prev) => !prev)}
