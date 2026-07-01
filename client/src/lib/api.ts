@@ -136,6 +136,13 @@ export async function sendMessage(conversationId: string, message: string, userI
   });
 
   if (!res.ok) {
+    if (res.status === 429) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("guestToken");
+        localStorage.removeItem("guestUserId");
+        window.location.reload();
+      }
+    }
     let errMsg = "Failed to send message";
     try {
       const data = await res.json();
