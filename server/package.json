@@ -34,6 +34,7 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.3",
+    "nodemon": "^3.1.14",
     "openai": "^6.45.0",
     "prisma": "6.10.0",
     "zod-to-json-schema": "^3.25.2"

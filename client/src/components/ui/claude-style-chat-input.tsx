@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Plus, ChevronDown, ArrowUp, X, FileText, Loader2, Check, Archive } from "lucide-react";
+import { Plus, ChevronDown, ArrowUp, X, FileText, Loader2, Check, Archive, Save } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 /* --- ICONS --- */
 export const Icons = {
@@ -54,7 +55,7 @@ const FilePreviewCard: React.FC<FilePreviewCardProps> = ({ file, onRemove }) => 
     const isImage = file.type.startsWith("image/") && file.preview;
 
     return (
-        <div className={`relative group flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-bg-300 bg-bg-200 animate-fade-in transition-all hover:border-text-400`}>
+        <div className={`relative group flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-bg-300 bg-bg-200 animate-fade-in transition-all hover:border-bg-400`}>
             {isImage ? (
                 <div className="w-full h-full relative">
                     <img src={file.preview!} alt={file.file.name} className="w-full h-full object-cover" />
@@ -81,7 +82,7 @@ const FilePreviewCard: React.FC<FilePreviewCardProps> = ({ file, onRemove }) => 
                 </div>
             )}
             <button
-                onClick={() => onRemove(file.id)}
+                onClick={(e) => { e.stopPropagation(); onRemove(file.id); }}
                 className="absolute top-1 right-1 p-1 bg-black/50 hover:bg-black/70 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
             >
                 <Icons.X className="w-3 h-3" />
@@ -104,24 +105,28 @@ export interface PastedContent {
 interface PastedContentCardProps {
     content: PastedContent;
     onRemove: (id: string) => void;
+    onClick: (content: PastedContent) => void;
 }
 
-const PastedContentCard: React.FC<PastedContentCardProps> = ({ content, onRemove }) => {
+const PastedContentCard: React.FC<PastedContentCardProps> = ({ content, onRemove, onClick }) => {
     return (
-        <div className="relative group flex-shrink-0 w-28 h-28 rounded-2xl overflow-hidden border border-[#E5E5E5] dark:border-[#30302E] bg-white dark:bg-[#20201F] animate-fade-in p-3 flex flex-col justify-between shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+        <div 
+            onClick={() => onClick(content)}
+            className="relative group flex-shrink-0 w-28 h-28 rounded-2xl overflow-hidden border border-bg-300 bg-bg-200 cursor-pointer hover:border-bg-400 animate-fade-in p-3 flex flex-col justify-between shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-colors"
+        >
             <div className="overflow-hidden w-full">
-                <p className="text-[10px] text-[#9CA3AF] leading-[1.4] font-mono break-words whitespace-pre-wrap line-clamp-4 select-none">
+                <p className="text-[10px] text-text-400 leading-[1.4] font-mono break-words whitespace-pre-wrap line-clamp-4 select-none">
                     {content.content}
                 </p>
             </div>
             <div className="flex items-center justify-between w-full mt-2">
-                <div className="inline-flex items-center justify-center px-1.5 py-[2px] rounded border border-[#E5E5E5] dark:border-[#404040] bg-white dark:bg-transparent">
-                    <span className="text-[9px] font-bold text-[#6B7280] dark:text-[#9CA3AF] uppercase tracking-wider font-sans">PASTED</span>
+                <div className="inline-flex items-center justify-center px-1.5 py-[2px] rounded border border-bg-300 bg-bg-100">
+                    <span className="text-[9px] font-bold text-text-300 uppercase tracking-wider font-sans">PASTED</span>
                 </div>
             </div>
             <button
-                onClick={() => onRemove(content.id)}
-                className="absolute top-2 right-2 p-[3px] bg-white dark:bg-[#30302E] border border-[#E5E5E5] dark:border-[#404040] rounded-full text-[#9CA3AF] hover:text-[#6B7280] dark:hover:text-white transition-colors shadow-sm opacity-0 group-hover:opacity-100"
+                onClick={(e) => { e.stopPropagation(); onRemove(content.id); }}
+                className="absolute top-2 right-2 p-[3px] bg-bg-100 border border-bg-300 rounded-full text-text-400 hover:text-text-100 transition-colors shadow-sm opacity-0 group-hover:opacity-100"
             >
                 <Icons.X className="w-2 h-2" />
             </button>
@@ -164,8 +169,8 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ models, selectedModel, on
                 onClick={() => setIsOpen(!isOpen)}
                 className={`inline-flex items-center justify-center relative shrink-0 transition font-base duration-300 ease-[cubic-bezier(0.165,0.85,0.45,1)] h-8 rounded-xl px-3 min-w-[4rem] active:scale-[0.98] whitespace-nowrap !text-xs pl-2.5 pr-2 gap-1 
                 ${isOpen
-                        ? 'bg-bg-200 text-text-100 dark:bg-[#454540] dark:text-[#ECECEC]'
-                        : 'text-text-300 hover:text-text-200 hover:bg-bg-200 dark:text-[#B4B4B4] dark:hover:text-[#ECECEC] dark:hover:bg-[#454540]'}`}
+                        ? 'bg-bg-200 text-text-100'
+                        : 'text-text-300 hover:text-text-200 hover:bg-bg-200'}`}
             >
                 <div className="font-ui inline-flex gap-[3px] text-[14px] h-[14px] leading-none items-baseline">
                     <div className="flex items-center gap-[4px]">
@@ -178,7 +183,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ models, selectedModel, on
             </button>
 
             {isOpen && (
-                <div className="absolute bottom-full right-0 mb-2 w-[260px] bg-white dark:bg-[#212121] border border-[#DDDDDD] dark:border-[#30302E] rounded-2xl shadow-2xl overflow-hidden z-50 flex flex-col p-1.5 animate-fade-in origin-bottom-right">
+                <div className="absolute bottom-full right-0 mb-2 w-[260px] bg-bg-100 border border-bg-300 rounded-2xl shadow-2xl overflow-hidden z-50 flex flex-col p-1.5 animate-fade-in origin-bottom-right">
                     {models.map(model => (
                         <button
                             key={model.id}
@@ -186,35 +191,35 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ models, selectedModel, on
                                 onSelect(model.id);
                                 setIsOpen(false);
                             }}
-                            className={`w-full text-left px-3 py-2.5 rounded-xl flex items-start justify-between group transition-colors hover:bg-bg-200 dark:hover:bg-[#30302E]`}
+                            className={`w-full text-left px-3 py-2.5 rounded-xl flex items-start justify-between group transition-colors hover:bg-bg-200`}
                         >
                             <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[13px] font-semibold text-text-100 dark:text-[#ECECEC]">
+                                    <span className="text-[13px] font-semibold text-text-100">
                                         {model.name}
                                     </span>
                                     {model.badge && (
                                         <span className={`px-1.5 py-[1px] rounded-full text-[10px] font-medium border ${model.badge === 'Upgrade'
-                                            ? 'border-blue-200 text-blue-600 bg-white dark:border-blue-500/30 dark:text-blue-400 dark:bg-blue-500/10'
+                                            ? 'border-accent text-accent bg-accent-soft'
                                             : 'border-bg-300 text-text-300'
                                             }`}>
                                             {model.badge}
                                         </span>
                                     )}
                                 </div>
-                                <span className="text-[11px] text-text-300 dark:text-[#999999]">
+                                <span className="text-[11px] text-text-300">
                                     {model.description}
                                 </span>
                             </div>
                             {selectedModel === model.id && (
-                                <Icons.Check className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-1" />
+                                <Icons.Check className="w-4 h-4 text-accent mt-1" />
                             )}
                         </button>
                     ))}
-                    <div className="h-px bg-bg-300 dark:bg-[#30302E] my-1 mx-2" />
-                    <button className="w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between group transition-colors hover:bg-bg-200 dark:hover:bg-[#30302E] text-text-100 dark:text-[#ECECEC]">
+                    <div className="h-px bg-bg-300 my-1 mx-2" />
+                    <button className="w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between group transition-colors hover:bg-bg-200 text-text-100">
                         <span className="text-[13px] font-semibold">More models</span>
-                        <Icons.SelectArrow className="w-4 h-4 -rotate-90 text-text-300 dark:text-[#999999]" />
+                        <Icons.SelectArrow className="w-4 h-4 -rotate-90 text-text-300" />
                     </button>
                 </div>
             )}
@@ -240,6 +245,10 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
     const [isDragging, setIsDragging] = useState(false);
     const [selectedModel, setSelectedModel] = useState("sonnet-4.5");
     const [isThinkingEnabled, setIsThinkingEnabled] = useState(false);
+    
+    // Editor Modal state
+    const [editingContent, setEditingContent] = useState<PastedContent | null>(null);
+    const [editValue, setEditValue] = useState("");
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -344,6 +353,15 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
         }
     };
 
+    const handleSaveEdit = () => {
+        if (editingContent) {
+            setPastedContent(prev => prev.map(c => 
+                c.id === editingContent.id ? { ...c, content: editValue } : c
+            ));
+        }
+        setEditingContent(null);
+    };
+
     const hasContent = message.trim() || files.length > 0 || pastedContent.length > 0;
 
     return (
@@ -354,10 +372,10 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
             onDrop={onDrop}
         >
             <div className={`
-                !box-content flex flex-col items-stretch transition-all duration-200 relative z-10 rounded-2xl cursor-text border border-bg-300 dark:border-[#454540] 
+                !box-content flex flex-col items-stretch transition-all duration-200 relative z-10 rounded-2xl cursor-text border border-bg-300 
                 shadow-[0_0_15px_rgba(0,0,0,0.08)] hover:shadow-[0_0_20px_rgba(0,0,0,0.12)]
                 focus-within:shadow-[0_0_25px_rgba(0,0,0,0.15)]
-                bg-white dark:bg-[#30302E] font-sans antialiased
+                bg-bg-100 font-sans antialiased
             `}>
                 <div className="flex flex-col px-3 pt-3 pb-2 gap-2">
                     {(files.length > 0 || pastedContent.length > 0) && (
@@ -367,6 +385,10 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
                                     key={content.id}
                                     content={content}
                                     onRemove={id => setPastedContent(prev => prev.filter(c => c.id !== id))}
+                                    onClick={content => {
+                                        setEditingContent(content);
+                                        setEditValue(content.content);
+                                    }}
                                 />
                             ))}
                             {files.map(file => (
@@ -409,16 +431,16 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
                                     onClick={() => setIsThinkingEnabled(!isThinkingEnabled)}
                                     className={`transition-all duration-200 h-8 w-8 flex items-center justify-center rounded-lg active:scale-95 group
                                         ${isThinkingEnabled
-                                            ? 'text-accent bg-accent/10'
+                                            ? 'text-accent bg-accent-soft'
                                             : 'text-text-400 hover:text-text-200 hover:bg-bg-200'}
                                     `}
                                     aria-pressed={isThinkingEnabled}
                                     aria-label="Extended thinking"
                                 >
                                     <Icons.Thinking className="w-5 h-5" />
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-[#1F1E1D] dark:bg-[#EEEEEC] text-bg-0 dark:text-text-100 text-[11px] font-medium rounded-[6px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 flex items-center gap-1 shadow-sm tracking-wide">
-                                        <span className="text-[#ECECEC] dark:text-[#1F1E1D]">Extended thinking</span>
-                                        <span className="text-[#999999] dark:text-[#73726C] opacity-80" style={{ fontSize: '10px' }}>⇧+Ctrl+E</span>
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-bg-100 border border-bg-300 text-text-100 text-[11px] font-medium rounded-[6px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 flex items-center gap-1 shadow-sm tracking-wide">
+                                        <span className="text-text-100">Extended thinking</span>
+                                        <span className="text-text-300 opacity-80" style={{ fontSize: '10px' }}>⇧+Ctrl+E</span>
                                     </div>
                                 </button>
                             </div>
@@ -438,8 +460,8 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
                                     className={`
                                         inline-flex items-center justify-center relative shrink-0 transition-colors h-8 w-8 rounded-md active:scale-95 !rounded-xl !h-8 !w-8
                                         ${hasContent
-                                            ? 'bg-accent text-bg-0 hover:bg-accent-hover shadow-md'
-                                            : 'bg-accent/30 text-bg-0/60 cursor-default'}
+                                            ? 'bg-accent text-white hover:bg-accent-hover shadow-md'
+                                            : 'bg-bg-300 text-text-400 cursor-default'}
                                     `}
                                     type="button"
                                     aria-label="Send message"
@@ -459,6 +481,60 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
                 </div>
             )}
 
+            <AnimatePresence>
+                {editingContent && (
+                    <motion.div 
+                        initial={{ opacity: 0 }} 
+                        animate={{ opacity: 1 }} 
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+                        onClick={() => setEditingContent(null)}
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-bg-100 border border-bg-300 rounded-2xl w-full max-w-3xl h-[70vh] flex flex-col shadow-2xl overflow-hidden"
+                        >
+                            <div className="flex items-center justify-between px-4 py-3 border-b border-bg-300 bg-bg-200/50">
+                                <h3 className="font-semibold text-text-100 flex items-center gap-2">
+                                    <Icons.FileText className="w-4 h-4 text-text-300" />
+                                    Edit Pasted Content
+                                </h3>
+                                <button 
+                                    onClick={() => setEditingContent(null)}
+                                    className="p-1 rounded-md text-text-400 hover:text-text-100 hover:bg-bg-300 transition-colors"
+                                >
+                                    <Icons.X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="flex-1 p-4 overflow-hidden flex flex-col">
+                                <textarea
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    className="w-full flex-1 bg-bg-200 border border-bg-300 rounded-xl p-4 text-text-100 font-mono text-[13px] resize-none focus:outline-none focus:border-accent custom-scrollbar shadow-inner"
+                                />
+                            </div>
+                            <div className="px-4 py-3 border-t border-bg-300 bg-bg-200/50 flex justify-end gap-2">
+                                <button
+                                    onClick={() => setEditingContent(null)}
+                                    className="px-4 py-2 text-sm font-medium text-text-200 hover:text-text-100 hover:bg-bg-300 rounded-lg transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveEdit}
+                                    className="px-4 py-2 text-sm font-medium bg-accent text-white hover:bg-accent-hover rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                    <Save className="w-4 h-4" /> Save Changes
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <input
                 ref={fileInputRef}
                 type="file"
@@ -469,7 +545,7 @@ export const ClaudeChatInput: React.FC<ClaudeChatInputProps> = ({ onSendMessage,
                     e.target.value = '';
                 }}
             />
-        </div >
+        </div>
     );
 };
 

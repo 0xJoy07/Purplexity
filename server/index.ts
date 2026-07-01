@@ -427,6 +427,9 @@ app.post("/users/cleanup", async (req: Request, res: Response) => {
 
 const PORT = process.env.PORT || 3000;
 
+// Prevent Bun from exiting prematurely due to Prisma's query engine dropping event loop handles
+setInterval(() => {}, 1 << 30);
+
 app.listen(PORT, () => {
   console.log(`🚀 Purplexity server running on http://localhost:${PORT}`);
   console.log(`\n📍 Endpoints:`);
