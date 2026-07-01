@@ -425,7 +425,7 @@ app.post("/users/cleanup", async (req: Request, res: Response) => {
 // START SERVER
 // ============================================
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
 // Prevent Bun from exiting prematurely due to Prisma's query engine dropping event loop handles
 setInterval(() => {}, 1 << 30);
