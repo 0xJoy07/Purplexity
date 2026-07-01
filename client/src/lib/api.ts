@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:3000";
+const API_BASE = "http://localhost:5000";
 
 export interface Source {
   title: string;
@@ -23,6 +23,17 @@ export interface Conversation {
   updatedAt: string;
 }
 
+export interface ConversationSummary {
+  id: string;
+  userId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { messages: number };
+}
+
+// ===== Auth Helpers =====
+
 export async function getOrCreateGuestUser() {
   if (typeof window === "undefined") return null;
   
@@ -30,11 +41,9 @@ export async function getOrCreateGuestUser() {
   const existingUserId = localStorage.getItem("guestUserId");
 
   if (existingToken && existingUserId) {
-    // Optionally check if token is expired, but for now we trust it
     return { token: existingToken, userId: existingUserId };
   }
 
-  // Create new guest
   const res = await fetch(`${API_BASE}/users/guest`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -52,6 +61,8 @@ export async function getOrCreateGuestUser() {
   return { token: data.token, userId: data.userId };
 }
 
+// ===== Conversation CRUD =====
+
 export async function createConversation(userId: string, token: string) {
   const res = await fetch(`${API_BASE}/conversations`, {
     method: "POST",
@@ -68,6 +79,51 @@ export async function createConversation(userId: string, token: string) {
 
   return res.json() as Promise<Conversation>;
 }
+
+export async function getUserConversations(userId: string, token: string) {
+  const res = await fetch(`${API_BASE}/conversations/user/${userId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch conversations");
+  }
+
+  return res.json() as Promise<ConversationSummary[]>;
+}
+
+export async function getConversation(conversationId: string, token: string) {
+  const res = await fetch(`${API_BASE}/conversations/${conversationId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch conversation");
+  }
+
+  return res.json() as Promise<Conversation>;
+}
+
+export async function deleteConversation(conversationId: string, token: string) {
+  const res = await fetch(`${API_BASE}/conversations/${conversationId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to delete conversation");
+  }
+
+  return res.json();
+}
+
+// ===== Messaging =====
 
 export async function sendMessage(conversationId: string, message: string, userId: string, token: string) {
   const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
