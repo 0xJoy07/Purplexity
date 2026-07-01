@@ -39,6 +39,7 @@ export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConver
 
   const handleDelete = async (event: React.MouseEvent, conversationId: string) => {
     event.stopPropagation();
+    if (deletingId) return; // Prevent double clicks or concurrent deletes
     try {
       setDeletingId(conversationId);
       const guest = await getOrCreateGuestUser();
