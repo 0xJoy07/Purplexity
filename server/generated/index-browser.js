@@ -181,6 +181,14 @@ exports.Prisma.TokenUsageScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.SemanticCacheScalarFieldEnum = {
+  id: 'id',
+  query: 'query',
+  response: 'response',
+  sources: 'sources',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -228,7 +236,8 @@ exports.Prisma.ModelName = {
   Conversation: 'Conversation',
   Message: 'Message',
   Query: 'Query',
-  TokenUsage: 'TokenUsage'
+  TokenUsage: 'TokenUsage',
+  SemanticCache: 'SemanticCache'
 };
 
 /**

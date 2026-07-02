@@ -1,13 +1,15 @@
 generator client {
-  provider   = "prisma-client-js"
-  output     = "../generated"
-  engineType = "library"
-  binaryTargets = ["native"]
+  provider        = "prisma-client-js"
+  output          = "../generated"
+  engineType      = "library"
+  binaryTargets   = ["native"]
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
 }
 
 // User model
@@ -128,4 +130,16 @@ model TokenUsage {
   @@index([userId])
   @@index([date])
   @@map("token_usage")
+}
+
+// Semantic Cache for caching LLM responses using pgvector
+model SemanticCache {
+  id        String   @id @default(uuid())
+  query     String   @db.Text
+  response  String   @db.Text
+  sources   Json     @default("[]")
+  embedding Unsupported("vector(384)")
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  @@map("semantic_cache")
 }

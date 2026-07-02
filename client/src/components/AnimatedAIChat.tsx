@@ -10,6 +10,8 @@ import {
   Brain,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleUserRound,
   Code2,
   Cpu,
@@ -48,6 +50,78 @@ const suggestions = [
   { icon: Brain, eyebrow: "Understand", label: "How neural networks actually learn", query: "How does a neural network learn?" },
   { icon: Cpu, eyebrow: "Compare", label: "REST and GraphQL, side by side", query: "Explain the difference between REST and GraphQL APIs" },
 ];
+
+function SourcesList({ message }: { message: Message }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [showLeft, setShowLeft] = useState(false);
+  const [showRight, setShowRight] = useState(false);
+
+  const updateArrows = useCallback(() => {
+    if (containerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = containerRef.current;
+      setShowLeft(scrollLeft > 0);
+      setShowRight(Math.ceil(scrollLeft) + clientWidth < scrollWidth);
+    }
+  }, []);
+
+  useEffect(() => {
+    updateArrows();
+    window.addEventListener('resize', updateArrows);
+    return () => window.removeEventListener('resize', updateArrows);
+  }, [updateArrows]);
+
+  useEffect(() => {
+    const timer = setTimeout(updateArrows, 100);
+    return () => clearTimeout(timer);
+  }, [message.sources, updateArrows]);
+
+  if (!message.sources || message.sources.length === 0) return null;
+
+  return (
+    <div className="relative group mb-6">
+      <button 
+        onClick={() => {
+          containerRef.current?.scrollBy({ left: -300, behavior: 'smooth' });
+          setTimeout(updateArrows, 300);
+        }}
+        className={cn(
+          "absolute left-0 top-1/2 -translate-y-1/2 -ml-3 z-10 h-8 w-8 items-center justify-center rounded-full bg-surface shadow-md border border-border opacity-0 transition-opacity hover:bg-btn-secondary hover:scale-105",
+          showLeft ? "sm:flex group-hover:opacity-100 hidden" : "hidden"
+        )}
+        aria-label="Scroll left"
+      >
+        <ChevronLeft className="h-4 w-4 text-foreground" />
+      </button>
+      
+      <div 
+        ref={containerRef}
+        onScroll={updateArrows}
+        className="no-scrollbar flex gap-2 overflow-x-auto pb-1 scroll-smooth"
+      >
+        {message.sources.map((source, index) => (
+          <a key={`${source.url}-${index}`} href={source.url} target="_blank" rel="noreferrer" className="flex min-w-[180px] max-w-[220px] items-start gap-2.5 rounded-xl border border-border bg-btn-secondary p-3 transition-colors hover:bg-btn-secondary-hover">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-surface text-[10px] font-semibold text-accent shadow-sm">{index + 1}</span>
+            <span className="min-w-0 text-xs leading-4 text-text-muted"><span className="line-clamp-2">{source.title}</span><ExternalLink className="mt-1 h-3 w-3 text-text-subtle" /></span>
+          </a>
+        ))}
+      </div>
+
+      <button 
+        onClick={() => {
+          containerRef.current?.scrollBy({ left: 300, behavior: 'smooth' });
+          setTimeout(updateArrows, 300);
+        }}
+        className={cn(
+          "absolute right-0 top-1/2 -translate-y-1/2 -mr-3 z-10 h-8 w-8 items-center justify-center rounded-full bg-surface shadow-md border border-border opacity-0 transition-opacity hover:bg-btn-secondary hover:scale-105",
+          showRight ? "sm:flex group-hover:opacity-100 hidden" : "hidden"
+        )}
+        aria-label="Scroll right"
+      >
+        <ChevronRight className="h-4 w-4 text-foreground" />
+      </button>
+    </div>
+  );
+}
 
 export function AnimatedAIChat({ activeConversationId, onConversationCreated, sidebarOpen }: AnimatedAIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -300,16 +374,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
                       <span className="ml-auto flex items-center gap-1 text-[11px] text-text-subtle"><Check className="h-3.5 w-3.5 text-accent" />Searched the web</span>
                     </div>
 
-                    {message.sources && message.sources.length > 0 && (
-                      <div className="no-scrollbar mb-6 flex gap-2 overflow-x-auto pb-1">
-                        {message.sources.map((source, index) => (
-                          <a key={`${source.url}-${index}`} href={source.url} target="_blank" rel="noreferrer" className="flex min-w-[180px] max-w-[220px] items-start gap-2.5 rounded-xl border border-border bg-btn-secondary p-3 transition-colors hover:bg-btn-secondary-hover">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-surface text-[10px] font-semibold text-accent shadow-sm">{index + 1}</span>
-                            <span className="min-w-0 text-xs leading-4 text-text-muted"><span className="line-clamp-2">{source.title}</span><ExternalLink className="mt-1 h-3 w-3 text-text-subtle" /></span>
-                          </a>
-                        ))}
-                      </div>
-                    )}
+                    <SourcesList message={message} />
 
                     <div className="max-w-[720px]" id={`message-content-${message.id}`}>
                       {message.id === newMessageId ? <ResponseStream textStream={message.content} mode="fade" speed={100} fadeDuration={600} onComplete={() => setNewMessageId(null)} /> : <MarkdownRenderer content={message.content} />}

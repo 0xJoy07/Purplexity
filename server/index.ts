@@ -39,6 +39,7 @@ import fs from "fs";
 import { createRequire } from "module";
 import analyzeRouter from "./routes/analyze.routes";
 import { analyzeContent } from "./services/contentAnalyzer.service";
+import { checkCache, saveToCache } from "./services/semanticCache.service";
 
 // CJS require for multer (ESM compat with Bun)
 const _require = createRequire(import.meta.url);
@@ -78,15 +79,36 @@ app.post("/purplexity_ask", requireAuth, checkTokenLimit, async (req: Request, r
 
     console.log(`Query received: ${query}`);
 
-    // Step 1: Web search
-    console.log("Searching the web...");
-    const webSearchResults = await searchWeb(query);
-    console.log(`Found ${webSearchResults.length} results`);
+    // Step 1: Check Semantic Cache
+    console.log("Checking semantic cache...");
+    const cacheMatch = await checkCache(query);
+    let webSearchResults: any[] = [];
+    let aiResponse: any;
+    
+    if (cacheMatch) {
+      console.log("✅ Cache hit! Skipping web search.");
+      webSearchResults = cacheMatch.sources;
+      
+      const cachedContext = `[CACHED INFORMATION FOUND]\nWe found this information in our database for a similar query: ${cacheMatch.response}`;
+      
+      aiResponse = await generateResponse(
+        query,
+        [],
+        cachedContext
+      );
+    } else {
+      console.log("❌ Cache miss. Searching the web...");
+      webSearchResults = await searchWeb(query);
+      console.log(`Found ${webSearchResults.length} results`);
 
-    // Step 2: Generate AI response
-    console.log("Generating AI response...");
-    const aiResponse = await generateResponse(query, webSearchResults);
-    console.log("Response generated");
+      // Step 2: Generate AI response
+      console.log("Generating AI response...");
+      aiResponse = await generateResponse(query, webSearchResults);
+      console.log("Response generated");
+      
+      // Save to cache asynchronously
+      saveToCache(query, aiResponse.answer, webSearchResults);
+    }
 
     // Step 3: Calculate tokens used
     const webResultsText = JSON.stringify(webSearchResults);
@@ -244,19 +266,41 @@ app.post(
       }
     }
 
-    // ── Step 2: Tavily web search ───────────────────────────────────────────
-    console.log("Searching the web...");
-    const webSearchResults = await searchWeb(message);
-    console.log(`Found ${webSearchResults.length} results`);
+    // ── Step 2: Check Semantic Cache ───────────────────────────────────────────
+    console.log("Checking semantic cache...");
+    const cacheMatch = await checkCache(message);
+    let webSearchResults: any[] = [];
+    let aiResponse: any;
+    
+    if (cacheMatch) {
+      console.log("✅ Cache hit! Skipping web search.");
+      webSearchResults = cacheMatch.sources;
+      
+      // Still call AI but with cached data as context instead of searching the web again.
+      const cachedContext = `[CACHED INFORMATION FOUND]\nWe found this information in our database for a similar query: ${cacheMatch.response}`;
+      
+      aiResponse = await generateResponse(
+        message,
+        [], // No new web search results needed
+        (fileContext ? fileContext + '\n\n' : '') + cachedContext
+      );
+    } else {
+      console.log("❌ Cache miss. Searching the web...");
+      webSearchResults = await searchWeb(message);
+      console.log(`Found ${webSearchResults.length} results`);
 
-    // ── Step 3: Generate AI response (with file context if present) ────────
-    console.log("Generating AI response...");
-    const aiResponse = await generateResponse(
-      message,
-      webSearchResults,
-      fileContext || undefined
-    );
-    console.log("Response generated");
+      // ── Step 3: Generate AI response (with file context if present) ────────
+      console.log("Generating AI response...");
+      aiResponse = await generateResponse(
+        message,
+        webSearchResults,
+        fileContext || undefined
+      );
+      console.log("Response generated");
+      
+      // Save the new response to cache asynchronously
+      saveToCache(message, aiResponse.answer, webSearchResults);
+    }
 
     // ── Step 4: Token accounting ────────────────────────────────────────────
     const webResultsText = JSON.stringify(webSearchResults);
