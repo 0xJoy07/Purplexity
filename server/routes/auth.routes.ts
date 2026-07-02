@@ -1,15 +1,17 @@
 import { Router } from "express";
 import type { Response } from "express";
 import { prisma } from "../config/db.config";
-import { blacklistToken, comparePassword, hashPassword, publicUser, sendVerificationEmail, signOAuthState, signSession, verifyToken } from "../services/auth.service";
+import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
+import { randomUUID } from "crypto";
+import { blacklistToken, comparePassword, hashPassword, publicUser, sendVerificationEmail, signSession, verifyToken } from "../services/auth.service";
 import { requireAuth, type AuthRequest } from "../middleware/auth.middleware";
 
 const router = Router();
 const cookieName = () => process.env.AUTH_COOKIE_NAME || "purplexity_session";
-const clientUrl = () => process.env.CLIENT_URL || "http://localhost:3001";
-const cookieOptions = { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", maxAge: 604800000, path: "/" };
-const setSession = (res: Response, user: { id: string; email: string }) => res.cookie(cookieName(), signSession(user), cookieOptions);
+const clientUrl = () => process.env.CLIENT_URL || "http://localhost:3000";
 
+// ── Register ──────────────────────────────────────────────────────────────────
 router.post("/register", async (req, res) => {
   try {
     const { email, password, name } = req.body;
@@ -22,59 +24,121 @@ router.post("/register", async (req, res) => {
   } catch (error) { console.error("Registration failed:", error); res.status(500).json({ error: "Could not create the account or send its verification email" }); }
 });
 
+// ── Login — returns JWT in body ───────────────────────────────────────────────
 router.post("/login", async (req, res) => {
   const user = await prisma.user.findUnique({ where: { email: String(req.body.email || "").trim().toLowerCase() } });
   if (!user?.passwordHash || !(await comparePassword(String(req.body.password || ""), user.passwordHash))) return void res.status(401).json({ error: "Incorrect email or password" });
   if (!user.emailVerified) return void res.status(403).json({ error: "Verify your email before signing in" });
-  setSession(res, user); res.json({ user: publicUser(user) });
+  const token = signSession(user);
+  res.json({ token, user: publicUser(user) });
 });
 
+// ── Verify Email ──────────────────────────────────────────────────────────────
 router.get("/verify-email", async (req, res) => {
   try {
     const payload = verifyToken(String(req.query.token || ""));
     if (payload.type !== "verify") throw new Error();
     const user = await prisma.user.update({ where: { id: payload.sub }, data: { emailVerified: true } });
-    setSession(res, user); res.json({ message: "Email verified", user: publicUser(user) });
+    const token = signSession(user);
+    res.json({ message: "Email verified", token, user: publicUser(user) });
   } catch { res.status(400).json({ error: "Verification link is invalid or expired" }); }
 });
 
+// ── Me ────────────────────────────────────────────────────────────────────────
 router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
   if (!user) return void res.status(404).json({ error: "Account not found" });
   res.json({ user: publicUser(user), tokenUsage: { used: user.tokensUsed, limit: user.tokenLimit, remaining: Math.max(0, user.tokenLimit - user.tokensUsed) } });
 });
 
+// ── Logout ────────────────────────────────────────────────────────────────────
 router.post("/logout", requireAuth, async (req: AuthRequest, res) => {
   const token = req.cookies?.[cookieName()] || req.headers.authorization?.slice(7);
-  if (token) await blacklistToken(verifyToken(token));
-  res.clearCookie(cookieName(), { path: "/" }); res.json({ message: "Signed out" });
+  if (token) {
+    try { await blacklistToken(verifyToken(token)); } catch {}
+  }
+  res.clearCookie(cookieName(), { path: "/" });
+  res.json({ message: "Signed out" });
 });
 
-router.get("/google", (_req, res) => res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${new URLSearchParams({ client_id: process.env.GOOGLE_CLIENT_ID || "", redirect_uri: process.env.GOOGLE_CALLBACK_URL || "", response_type: "code", scope: "openid email profile", prompt: "select_account", state: signOAuthState() })}`));
-router.get("/google/callback", async (req, res) => {
+// ── OAuth Sync (called by frontend after Supabase OAuth completes) ────────────
+// Frontend uses Supabase for the OAuth dance with Google/GitHub.
+// After Supabase returns the user, frontend calls this endpoint to
+// create/update the user in our Prisma DB and get our own JWT.
+router.post("/oauth-sync", async (req, res) => {
   try {
-    if (verifyToken(String(req.query.state || "")).type !== "oauth") throw new Error();
-    const tokens: any = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ code: String(req.query.code), client_id: process.env.GOOGLE_CLIENT_ID || "", client_secret: process.env.GOOGLE_CLIENT_SECRET || "", redirect_uri: process.env.GOOGLE_CALLBACK_URL || "", grant_type: "authorization_code" }) }).then(r => r.json());
-    const p: any = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", { headers: { Authorization: `Bearer ${tokens.access_token}` } }).then(r => r.json());
-    if (!p.email) throw new Error();
-    const user = await prisma.user.upsert({ where: { email: p.email.toLowerCase() }, update: { name: p.name, profileImage: p.picture, emailVerified: true }, create: { email: p.email.toLowerCase(), name: p.name, profileImage: p.picture, provider: "Google", emailVerified: true, tokenLimit: 100000, dailyTokenLimit: 100000 } });
-    setSession(res, user); res.redirect(clientUrl());
-  } catch { res.redirect(`${clientUrl()}/?authError=google`); }
+    const { email, name, avatar, provider } = req.body;
+    if (!email) return void res.status(400).json({ error: "Email is required" });
+    const normalized = String(email).trim().toLowerCase();
+    const providerName = String(provider || "oauth").charAt(0).toUpperCase() + String(provider || "oauth").slice(1);
+
+    const user = await prisma.user.upsert({
+      where: { email: normalized },
+      update: {
+        name: String(name || "").trim() || undefined,
+        profileImage: avatar || undefined,
+        emailVerified: true,
+      },
+      create: {
+        email: normalized,
+        name: String(name || "User").trim(),
+        profileImage: avatar || null,
+        provider: providerName,
+        emailVerified: true,
+        tokenLimit: 100000,
+        dailyTokenLimit: 100000,
+      },
+    });
+
+    const token = signSession(user);
+    res.json({ token, user: publicUser(user) });
+  } catch (error) {
+    console.error("OAuth sync error:", error);
+    res.status(500).json({ error: "Failed to sync OAuth user" });
+  }
 });
 
-router.get("/github", (_req, res) => res.redirect(`https://github.com/login/oauth/authorize?${new URLSearchParams({ client_id: process.env.GITHUB_CLIENT_ID || "", redirect_uri: process.env.GITHUB_CALLBACK_URL || "", scope: "read:user user:email", state: signOAuthState() })}`));
-router.get("/github/callback", async (req, res) => {
+// ── Forgot Password ───────────────────────────────────────────────────────────
+router.post("/forgot-password", async (req, res) => {
   try {
-    if (verifyToken(String(req.query.state || "")).type !== "oauth") throw new Error();
-    const tokens: any = await fetch("https://github.com/login/oauth/access_token", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ client_id: process.env.GITHUB_CLIENT_ID, client_secret: process.env.GITHUB_CLIENT_SECRET, code: req.query.code, redirect_uri: process.env.GITHUB_CALLBACK_URL }) }).then(r => r.json());
-    const headers = { Authorization: `Bearer ${tokens.access_token}`, Accept: "application/vnd.github+json", "User-Agent": "Purplexity" };
-    const p: any = await fetch("https://api.github.com/user", { headers }).then(r => r.json());
-    const emails = await fetch("https://api.github.com/user/emails", { headers }).then(r => r.json()) as any[];
-    const email = emails.find(e => e.primary && e.verified)?.email || emails.find(e => e.verified)?.email;
-    if (!email) throw new Error();
-    const user = await prisma.user.upsert({ where: { email: email.toLowerCase() }, update: { name: p.name || p.login, profileImage: p.avatar_url, emailVerified: true }, create: { email: email.toLowerCase(), name: p.name || p.login, profileImage: p.avatar_url, provider: "Github", emailVerified: true, tokenLimit: 100000, dailyTokenLimit: 100000 } });
-    setSession(res, user); res.redirect(clientUrl());
-  } catch { res.redirect(`${clientUrl()}/?authError=github`); }
+    const { email } = req.body;
+    const normalized = String(email || "").trim().toLowerCase();
+    if (!normalized) return void res.status(400).json({ error: "Email is required" });
+    const user = await prisma.user.findUnique({ where: { email: normalized } });
+    if (!user || user.provider !== "Credentials") {
+      return void res.json({ message: "If an account exists, a reset link has been sent" });
+    }
+    const token = jwt.sign({ sub: user.id, email: user.email, jti: randomUUID(), type: "reset" }, process.env.JWT_SECRET!, { expiresIn: "30m" });
+    const url = `${clientUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: process.env.SMTP_SECURE === "true",
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || "Purplexity <no-reply@localhost>",
+      to: user.email,
+      subject: "Reset your Purplexity password",
+      html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px"><h1>Reset your password</h1><p>Hi ${user.name}, click the button below to reset your password. This link expires in 30 minutes.</p><p><a href="${url}" style="display:inline-block;background:#168b86;color:#fff;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:700">Reset password</a></p><p style="color:#999;font-size:12px">If you didn't request this, you can safely ignore it.</p></div>`,
+    });
+    res.json({ message: "If an account exists, a reset link has been sent" });
+  } catch (error) { console.error("Forgot password error:", error); res.status(500).json({ error: "Failed to send reset email" }); }
+});
+
+// ── Reset Password ────────────────────────────────────────────────────────────
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || typeof password !== "string" || password.length < 8) {
+      return void res.status(400).json({ error: "Valid token and a password of at least 8 characters are required" });
+    }
+    let payload: any;
+    try { payload = jwt.verify(token, process.env.JWT_SECRET!); } catch { return void res.status(400).json({ error: "Reset link is invalid or expired" }); }
+    if (payload.type !== "reset") return void res.status(400).json({ error: "Invalid token type" });
+    await prisma.user.update({ where: { id: payload.sub }, data: { passwordHash: await hashPassword(password) } });
+    res.json({ message: "Password updated. You can now sign in." });
+  } catch (error) { console.error("Reset password error:", error); res.status(500).json({ error: "Failed to reset password" }); }
 });
 
 export default router;

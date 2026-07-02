@@ -35,6 +35,8 @@ import {
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { ResponseStream } from "./ui/response-stream";
 import { ClaudeChatInput } from "./ui/claude-style-chat-input";
+import { useAuth } from "@/lib/auth";
+import Link from "next/link";
 
 
 interface AnimatedAIChatProps {
@@ -124,6 +126,7 @@ function SourcesList({ message }: { message: Message }) {
 }
 
 export function AnimatedAIChat({ activeConversationId, onConversationCreated, sidebarOpen }: AnimatedAIChatProps) {
+  const { user, token } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
@@ -144,9 +147,17 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
 
     const loadConversation = async () => {
       try {
-        const guest = await getOrCreateGuestUser();
-        if (!guest) return;
-        const conversation = await getConversation(activeConversationId, guest.token);
+        let conversation;
+        if (user && token) {
+          const res = await fetch(`http://localhost:5000/conversations/${activeConversationId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          conversation = await res.json();
+        } else {
+          const guest = await getOrCreateGuestUser();
+          if (!guest) return;
+          conversation = await getConversation(activeConversationId, guest.token);
+        }
         setMessages(conversation.messages || []);
         setNewMessageId(null);
       } catch (error) {
@@ -155,7 +166,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
       }
     };
     loadConversation();
-  }, [activeConversationId]);
+  }, [activeConversationId, user, token]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -174,28 +185,48 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
     };
 
     try {
-      const guest = await getOrCreateGuestUser();
-      if (!guest) throw new Error("Could not initialize guest");
+      let currentUserId: string;
+      let currentToken: string;
+
+      if (user && token) {
+        // Authenticated user — use real Bearer token stored in localStorage
+        currentUserId = user.id;
+        currentToken = token;
+      } else {
+        const guest = await getOrCreateGuestUser();
+        if (!guest) throw new Error("Could not initialize guest");
+        currentUserId = guest.userId;
+        currentToken = guest.token;
+      }
+
       let currentId = conversationId;
       if (!currentId) {
-        const conversation = await createConversation(guest.userId, guest.token);
+        const res = await fetch('http://localhost:5000/conversations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentToken}`,
+          },
+          body: JSON.stringify({ userId: currentUserId }),
+        });
+        const conversation = await res.json();
         currentId = conversation.id;
         setConversationId(currentId);
-        lastLoadedIdRef.current = currentId; // IMPORTANT: Prevent wiping out optimistic message
+        lastLoadedIdRef.current = currentId;
         onConversationCreated(currentId);
       }
       setMessages((current) => [...current, optimistic]);
       const response = await sendMessage(
-        currentId,
+        currentId!,
         messageText,
-        guest.userId,
-        guest.token,
+        currentUserId,
+        currentToken,
         attachedFiles && attachedFiles.length > 0 ? attachedFiles : undefined
       );
       setNewMessageId(response.assistantMessage.id);
       setMessages((current) => [
         ...current.filter((message) => message.id !== optimistic.id),
-        { ...response.userMessage, id: optimistic.id }, // Keep optimistic ID to prevent re-animation
+        { ...response.userMessage, id: optimistic.id },
         response.assistantMessage,
       ]);
     } catch (error) {
@@ -303,15 +334,26 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
   } else if (currentHour >= 18) {
       greeting = 'Good evening';
   }
-  const userName = 'Guest'; // TODO: fetch from user context if available
+  const userName = user ? user.name.split(' ')[0] : 'there';
 
 
   return (
     <section className={cn("relative flex h-screen min-w-0 flex-1 flex-col bg-background text-foreground transition-[margin] duration-200", sidebarOpen ? "lg:ml-[248px]" : "ml-0")}>
       <header className="absolute inset-x-0 top-0 z-20 flex h-16 items-center justify-end border-b border-transparent px-4 sm:px-6">
-        <button type="button" className="flex h-9 items-center gap-2 rounded-lg bg-surface-active px-3.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-hover">
-          <CircleUserRound className="h-4 w-4" />Sign in
-        </button>
+        {user ? (
+          <div className="flex h-9 items-center gap-2 rounded-lg bg-surface-active px-3.5 text-xs font-medium text-foreground">
+            {user.profileImage ? (
+              <img src={user.profileImage} alt={user.name} className="h-5 w-5 rounded-full object-cover" />
+            ) : (
+              <CircleUserRound className="h-4 w-4" />
+            )}
+            <span>{user.name.split(' ')[0]}</span>
+          </div>
+        ) : (
+          <Link href="/signin" className="flex h-9 items-center gap-2 rounded-lg bg-surface-active px-3.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-hover hover:text-accent">
+            <CircleUserRound className="h-4 w-4" />Sign in
+          </Link>
+        )}
       </header>
 
       <AnimatePresence mode="wait">

@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Compass, History, Home, Library, PanelLeftClose, PanelLeftOpen, Plus, Search, Trash2 } from "lucide-react";
+import { Compass, History, Home, Library, LogIn, LogOut, PanelLeftClose, PanelLeftOpen, Plus, Trash2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ConversationSummary } from "@/lib/api";
 import { deleteConversation as apiDeleteConversation, getOrCreateGuestUser, getUserConversations } from "@/lib/api";
 import { ThemeToggle } from "./ThemeToggle";
+import { useAuth } from "@/lib/auth";
+import Link from "next/link";
+import { gsap } from "gsap";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -18,6 +21,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConversation, onNewChat, refreshTrigger }: SidebarProps) {
+  const { user, token, logout, isLoading: authLoading } = useAuth();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -25,34 +29,54 @@ export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConver
   const fetchConversations = useCallback(async () => {
     try {
       setIsLoading(true);
-      const guest = await getOrCreateGuestUser();
-      if (!guest) return;
-      const items = await getUserConversations(guest.userId, guest.token);
-      setConversations(items.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+      if (user && token) {
+        const res = await fetch(`http://localhost:5000/conversations/user/${user.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const items = await res.json();
+        setConversations(Array.isArray(items) ? items.sort((a: ConversationSummary, b: ConversationSummary) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()) : []);
+      } else {
+        const guest = await getOrCreateGuestUser();
+        if (!guest) return;
+        const items = await getUserConversations(guest.userId, guest.token);
+        setConversations(items.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+      }
     } catch (error) {
       console.error("Failed to fetch conversations:", error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user, token]);
 
   useEffect(() => { fetchConversations(); }, [fetchConversations, refreshTrigger]);
 
   const handleDelete = async (event: React.MouseEvent, conversationId: string) => {
     event.stopPropagation();
-    if (deletingId) return; // Prevent double clicks or concurrent deletes
+    if (deletingId) return;
     try {
       setDeletingId(conversationId);
-      const guest = await getOrCreateGuestUser();
-      if (!guest) return;
-      await apiDeleteConversation(conversationId, guest.token);
-      setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
+      if (user && token) {
+        await fetch(`http://localhost:5000/conversations/${conversationId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } else {
+        const guest = await getOrCreateGuestUser();
+        if (!guest) return;
+        await apiDeleteConversation(conversationId, guest.token);
+      }
+      setConversations((current) => current.filter((c) => c.id !== conversationId));
       if (activeConversationId === conversationId) onNewChat();
     } catch (error) {
       console.error("Failed to delete conversation:", error);
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const handleLogout = async () => {
+    gsap.to('.sidebar-user-row', { opacity: 0, y: 8, duration: 0.2 });
+    await logout();
   };
 
   const navItems = [
@@ -121,12 +145,43 @@ export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConver
               )}
             </div>
 
-            <div className="m-3 flex items-center justify-between rounded-xl border border-border-subtle bg-surface p-3">
-              <div>
-                <p className="text-xs font-medium text-foreground">Guest workspace</p>
-                <p className="mt-1 text-[11px] leading-4 text-text-subtle">Sign in to sync your research.</p>
-              </div>
-              <ThemeToggle />
+            {/* User footer */}
+            <div className="m-3">
+              {!authLoading && user ? (
+                <div className="sidebar-user-row flex items-center gap-2.5 rounded-xl border border-border-subtle bg-surface p-3">
+                  {user.profileImage ? (
+                    <img src={user.profileImage} alt={user.name} className="h-8 w-8 rounded-full object-cover" />
+                  ) : (
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft">
+                      <User className="h-4 w-4 text-accent" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-foreground">{user.name}</p>
+                    <p className="truncate text-[10px] text-text-subtle">{user.email}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <ThemeToggle />
+                    <button onClick={handleLogout} title="Sign out" className="rounded-lg p-1.5 text-text-subtle transition-colors hover:bg-surface-hover hover:text-foreground">
+                      <LogOut className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between rounded-xl border border-border-subtle bg-surface p-3">
+                  <div>
+                    <p className="text-xs font-medium text-foreground">Guest workspace</p>
+                    <p className="mt-1 text-[11px] leading-4 text-text-subtle">Sign in to sync your research.</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <ThemeToggle />
+                    <Link href="/signin" className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium text-accent transition-colors hover:bg-accent-soft">
+                      <LogIn className="h-3.5 w-3.5" />
+                      Sign in
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.aside>
         )}

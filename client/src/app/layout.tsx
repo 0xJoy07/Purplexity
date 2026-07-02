@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/lib/auth";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -32,7 +33,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${geistMono.variable} antialiased min-h-full flex flex-col`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -163,6 +163,8 @@ export async function sendMessage(
     body,
   });
 
+
+
   if (!res.ok) {
     if (res.status === 429) {
       if (typeof window !== "undefined") {
