@@ -3,15 +3,13 @@ import fs from "fs/promises";
 import path from "path";
 import { createRequire } from "module";
 import mammoth from "mammoth";
-import tesseract from "node-tesseract-ocr";
+import { recognize as tesseractRecognize } from "tesseract.js";
 import { fileTypeFromBuffer } from "file-type";
 
 // CJS-loaded libraries to avoid Bun ESM issues
 const _require = createRequire(import.meta.url);
 const _pdfParseModule = _require("pdf-parse");
-// Handle both direct function export and Module wrapper with .default
-const pdfParse: (buf: Buffer) => Promise<{ text: string; info: Record<string, unknown>; metadata: unknown }> =
-  typeof _pdfParseModule === "function" ? _pdfParseModule : _pdfParseModule.default ?? _pdfParseModule;
+const PDFParse = _pdfParseModule.PDFParse ?? _pdfParseModule.default ?? _pdfParseModule;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -59,25 +57,113 @@ function textStats(text: string) {
 // Extractors
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** OCR an image file with Tesseract */
+/** OCR an image file with Tesseract.js (pure JS, no system binary needed) */
 async function extractFromImage(filePath: string): Promise<Pick<AnalysisResult, "text" | "method">> {
-  const config = { lang: "eng", oem: 1, psm: 3 } as const;
   try {
-    const text = await tesseract.recognize(filePath, config);
-    return { text: text.trim(), method: "OCR (Tesseract)" };
+    const result = await tesseractRecognize(filePath, "eng");
+    const text = result?.data?.text ?? "";
+    return { text: text.trim(), method: "OCR (Tesseract.js)" };
   } catch (e) {
     console.error("[analyzeContent] OCR error:", e);
-    return { text: "", method: "OCR (Tesseract) – failed" };
+    return { text: "", method: "OCR (Tesseract.js) – failed" };
   }
 }
 
 /** Parse a PDF buffer */
 async function extractFromPdf(buffer: Buffer): Promise<Pick<AnalysisResult, "text" | "metadata" | "method">> {
   try {
-    const data = await pdfParse(buffer);
+    const parser = new PDFParse({ data: buffer });
+    await parser.load();
+    const result = await parser.getText();
+
+    // getText() returns a result object with .text (joined string) and .pages (array of { text, num })
+    let text = "";
+    if (typeof result === "string") {
+      text = result;
+    } else if (result) {
+      if (result.text && typeof result.text === "string" && result.text.trim().length > 0) {
+        text = result.text;
+      }
+      if (!text.trim() && Array.isArray(result.pages)) {
+        text = result.pages
+          .map((p: any) => (typeof p === "string" ? p : p?.text ?? ""))
+          .join("\n\n");
+      }
+    }
+
+    const info = await parser.getInfo().catch(() => ({}));
+    const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+    console.log(`[extractFromPdf] Text extraction got ${wordCount} words`);
+
+    // If text extraction yielded very little, this PDF is likely image-based.
+    // Try to extract embedded images and OCR them.
+    if (wordCount < 50) {
+      console.log("[extractFromPdf] Low word count — attempting image extraction + OCR fallback...");
+      try {
+        const imageResult = await parser.getImage();
+        const allImages: any[] = [];
+        if (imageResult && Array.isArray(imageResult.pages)) {
+          for (const page of imageResult.pages) {
+            if (Array.isArray(page.images)) {
+              allImages.push(...page.images);
+            }
+          }
+        }
+        console.log(`[extractFromPdf] Found ${allImages.length} embedded image(s)`);
+
+        if (allImages.length > 0) {
+          const ocrTexts: string[] = [];
+          for (let i = 0; i < Math.min(allImages.length, 10); i++) {
+            const img = allImages[i];
+            try {
+              // Try resolving the image to a usable buffer
+              let imgBuffer: Buffer | null = null;
+              if (img.data && img.data instanceof Uint8Array) {
+                imgBuffer = Buffer.from(img.data);
+              } else if (typeof parser.resolveEmbeddedImage === "function") {
+                const resolved = await parser.resolveEmbeddedImage(img);
+                if (resolved?.data) {
+                  imgBuffer = Buffer.from(resolved.data);
+                }
+              }
+
+              if (imgBuffer && imgBuffer.length > 1000) {
+                // Write to a temp file for OCR
+                const tmpPath = path.join(import.meta.dir, `../../uploads/_ocr_tmp_${Date.now()}_${i}.png`);
+                await fs.mkdir(path.dirname(tmpPath), { recursive: true });
+                await fs.writeFile(tmpPath, imgBuffer);
+                try {
+                  const ocrResult = await extractFromImage(tmpPath);
+                  if (ocrResult.text.trim()) {
+                    ocrTexts.push(ocrResult.text.trim());
+                  }
+                } finally {
+                  await fs.unlink(tmpPath).catch(() => {});
+                }
+              }
+            } catch (imgErr) {
+              console.error(`[extractFromPdf] OCR on image ${i} failed:`, imgErr);
+            }
+          }
+
+          if (ocrTexts.length > 0) {
+            const ocrText = ocrTexts.join("\n\n");
+            console.log(`[extractFromPdf] OCR extracted ${ocrText.split(/\s+/).length} words from ${ocrTexts.length} image(s)`);
+            return {
+              text: ocrText,
+              metadata: (info as Record<string, unknown>) ?? {},
+              method: "PDF parser (pdf-parse) + OCR fallback",
+            };
+          }
+        }
+      } catch (ocrErr) {
+        console.error("[extractFromPdf] OCR fallback failed:", ocrErr);
+      }
+    }
+
     return {
-      text: data.text.trim(),
-      metadata: (data.info as Record<string, unknown>) ?? {},
+      text: String(text).trim(),
+      metadata: (info as Record<string, unknown>) ?? {},
       method: "PDF parser (pdf-parse)",
     };
   } catch (e) {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Compass, History, Home, Library, LogIn, LogOut, PanelLeftClose, PanelLeftOpen, Plus, Trash2, User } from "lucide-react";
+import { FileText, History, Home, Library, LogIn, LogOut, PanelLeftClose, PanelLeftOpen, Plus, Trash2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ConversationSummary } from "@/lib/api";
 import { deleteConversation as apiDeleteConversation, getOrCreateGuestUser, getUserConversations } from "@/lib/api";
@@ -21,6 +22,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConversation, onNewChat, refreshTrigger }: SidebarProps) {
+  const pathname = usePathname();
   const { user, token, logout, isLoading: authLoading } = useAuth();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -80,9 +82,9 @@ export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConver
   };
 
   const navItems = [
-    { label: "Home", icon: Home, active: true },
-    { label: "Documents", icon: Compass, active: false },
-    { label: "Profile", icon: Library, active: false },
+    { label: "Home", icon: Home, href: "/" },
+    { label: "Documents", icon: FileText, href: "/documents" },
+    { label: "Profile", icon: Library, href: "/profile" },
   ];
 
   return (
@@ -115,11 +117,14 @@ export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConver
             </div>
 
             <nav className="space-y-0.5 px-3">
-              {navItems.map(({ label, icon: Icon, active }) => (
-                <button key={label} type="button" className={cn("flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm transition-colors", active ? "bg-surface-hover font-medium text-foreground" : "text-text-muted hover:bg-surface-hover hover:text-foreground")}>
-                  <Icon className="h-[17px] w-[17px]" />{label}
-                </button>
-              ))}
+              {navItems.map(({ label, icon: Icon, href }) => {
+                const isActive = pathname === href;
+                return (
+                  <Link key={label} href={href} className={cn("flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm transition-colors", isActive ? "bg-surface-hover font-medium text-foreground" : "text-text-muted hover:bg-surface-hover hover:text-foreground")}>
+                    <Icon className="h-[17px] w-[17px]" />{label}
+                  </Link>
+                );
+              })}
             </nav>
 
             <div className="mx-4 my-4 h-px bg-border" />

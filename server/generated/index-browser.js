@@ -189,6 +189,15 @@ exports.Prisma.SemanticCacheScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.FileScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  name: 'name',
+  mimeType: 'mimeType',
+  data: 'data',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -237,7 +246,8 @@ exports.Prisma.ModelName = {
   Message: 'Message',
   Query: 'Query',
   TokenUsage: 'TokenUsage',
-  SemanticCache: 'SemanticCache'
+  SemanticCache: 'SemanticCache',
+  File: 'File'
 };
 
 /**

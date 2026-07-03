@@ -31,6 +31,7 @@ model User {
   queries       Query[]
   tokenUsage    TokenUsage[]
   revokedTokens RevokedToken[]
+  files         File[]
   
   @@map("users")
 }
@@ -142,4 +143,19 @@ model SemanticCache {
   createdAt DateTime @default(now()) @map("created_at")
   
   @@map("semantic_cache")
+}
+
+// File model - stores user uploaded files directly in DB
+model File {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  mimeType  String   @map("mime_type")
+  data      Bytes
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("files")
 }

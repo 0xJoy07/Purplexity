@@ -4,7 +4,8 @@ import { createRequire } from "module";
 import path from "path";
 import fs from "fs";
 import { analyzeContent } from "../services/contentAnalyzer.service";
-
+import { prisma } from "../config/db.config";
+import { requireAuth } from "../middleware/auth.middleware";
 const _require = createRequire(import.meta.url);
 const multer = _require("multer");
 
@@ -43,7 +44,7 @@ const upload = multer({
 });
 
 // ── POST /api/analyze ───────────────────────────────────────────────────────
-router.post("/api/analyze", upload.single("file"), async (req: Request, res: Response) => {
+router.post("/api/analyze", requireAuth, upload.single("file"), async (req: Request, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
@@ -87,16 +88,27 @@ router.post("/api/analyze", upload.single("file"), async (req: Request, res: Res
     const answer = await callLLM(contextBlock, userQuery);
     console.log("[analyze] LLM response received");
 
-    // ── Step 4: Persist the file publicly ───────────────────────────────────
-    const publicDir = path.join(__dirname, "../../public/uploads");
-    if (!fs.existsSync(publicDir)) {
-      fs.mkdirSync(publicDir, { recursive: true });
+    // ── Step 4: Persist the file in DB ───────────────────────────────────
+    const userId = (req as any).auth?.userId;
+    if (!userId) throw new Error("Unauthorized");
+    
+    const fileBuffer = await fs.promises.readFile(filePath);
+    const savedFile = await prisma.file.create({
+      data: {
+        userId: userId,
+        name: originalName,
+        mimeType: mime,
+        data: fileBuffer,
+      }
+    });
+
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {
+      console.error("[analyze] Error deleting temp file:", e);
     }
-    // Sanitise file name to avoid path traversal
-    const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const publicPath = path.join(publicDir, safeName);
-    fs.renameSync(filePath, publicPath);
-    const fileUrl = `/uploads/${encodeURIComponent(safeName)}`;
+    
+    const fileUrl = `/api/files/${savedFile.id}`;
 
     // ── Step 5: Respond ─────────────────────────────────────────────────────
     res.json({

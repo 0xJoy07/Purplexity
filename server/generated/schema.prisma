@@ -1,13 +1,15 @@
 generator client {
-  provider      = "prisma-client-js"
-  output        = "../generated"
-  engineType    = "library"
-  binaryTargets = ["native"]
+  provider        = "prisma-client-js"
+  output          = "../generated"
+  engineType      = "library"
+  binaryTargets   = ["native"]
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
 }
 
 // User model
@@ -29,6 +31,7 @@ model User {
   queries       Query[]
   tokenUsage    TokenUsage[]
   revokedTokens RevokedToken[]
+  files         File[]
 
   @@map("users")
 }
@@ -129,4 +132,31 @@ model TokenUsage {
   @@index([userId])
   @@index([date])
   @@map("token_usage")
+}
+
+// Semantic Cache for caching LLM responses using pgvector
+model SemanticCache {
+  id        String                     @id @default(uuid())
+  query     String                     @db.Text
+  response  String                     @db.Text
+  sources   Json                       @default("[]")
+  embedding Unsupported("vector(384)")
+  createdAt DateTime                   @default(now()) @map("created_at")
+
+  @@map("semantic_cache")
+}
+
+// File model - stores user uploaded files directly in DB
+model File {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  mimeType  String   @map("mime_type")
+  data      Bytes
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("files")
 }

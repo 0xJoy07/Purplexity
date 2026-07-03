@@ -32,6 +32,14 @@ export interface ConversationSummary {
   _count?: { messages: number };
 }
 
+export interface UserDocument {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  createdAt: string;
+}
+
 // ===== Auth Helpers =====
 
 export async function getOrCreateGuestUser() {
@@ -190,4 +198,37 @@ export async function sendMessage(
     attachments?: { name: string; type: string; url: string }[];
     tokenUsage: any;
   }>;
+}
+
+// ===== Documents =====
+
+export async function getUserDocuments(token: string): Promise<UserDocument[]> {
+  const res = await fetch(`${API_BASE}/api/files`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch documents");
+  }
+
+  return res.json();
+}
+
+export async function deleteUserDocument(fileId: string, token: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/files/${fileId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to delete document");
+  }
+}
+
+export function getFileDownloadUrl(fileId: string): string {
+  return `${API_BASE}/api/files/${fileId}`;
 }

@@ -4,7 +4,7 @@ import type { Request, Response } from "express";
 import "dotenv/config";
 import { searchWeb } from "./services/webSearch.service";
 import { generateResponse } from "./services/ai.service";
-import { testDatabaseConnection } from "./config/db.config";
+import { testDatabaseConnection, prisma } from "./config/db.config";
 import { saveQuery, getUserById, findOrCreateUser, getUserStats } from "./services/database.service";
 import {
   createConversation,
@@ -64,6 +64,88 @@ app.use(analyzeRouter);
 app.use("/auth", authRoutes);
 app.use("/conversations", requireAuth);
 app.use("/tokens", requireAuth);
+
+// List files for authenticated user (metadata only)
+app.get("/api/files", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).auth?.userId;
+    if (!userId) return void res.status(401).json({ error: "Unauthorized" });
+
+    const files = await prisma.file.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+        mimeType: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Also compute the size from the data column using raw SQL for efficiency
+    const filesWithSize = await Promise.all(
+      files.map(async (f) => {
+        const result = await prisma.$queryRaw<{ size: bigint }[]>`
+          SELECT octet_length(data) as size FROM files WHERE id = ${f.id}
+        `;
+        return { ...f, size: Number(result[0]?.size ?? 0) };
+      })
+    );
+
+    res.json(filesWithSize);
+  } catch (error) {
+    console.error("[GET /api/files] Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Serve files securely
+app.get("/api/files/:id", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).auth?.userId;
+    const fileId = req.params.id;
+
+    if (!userId) return void res.status(401).json({ error: "Unauthorized" });
+
+    const file = await prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    if (!file) return void res.status(404).json({ error: "File not found" });
+    
+    // Only allow the owner to access their file
+    if (file.userId !== userId) {
+      return void res.status(403).json({ error: "Forbidden" });
+    }
+
+    res.setHeader("Content-Type", file.mimeType);
+    res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(file.name)}"`);
+    res.send(file.data);
+  } catch (error) {
+    console.error("[GET /api/files/:id] Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Delete a file
+app.delete("/api/files/:id", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).auth?.userId;
+    const fileId = req.params.id;
+
+    if (!userId) return void res.status(401).json({ error: "Unauthorized" });
+
+    const file = await prisma.file.findUnique({ where: { id: fileId }, select: { userId: true } });
+    if (!file) return void res.status(404).json({ error: "File not found" });
+    if (file.userId !== userId) return void res.status(403).json({ error: "Forbidden" });
+
+    await prisma.file.delete({ where: { id: fileId } });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[DELETE /api/files/:id] Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 // Test database connection on startup
 testDatabaseConnection();
@@ -258,21 +340,52 @@ app.post(
           }
           fileContext += `\nContent:\n${truncatedText}\n`;
 
-          // Move file to public uploads
-          const publicDir = path.join(import.meta.dir, "../public/uploads");
-          if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
-          const safeName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-          fs.renameSync(file.path, path.join(publicDir, safeName));
-          fileInfos.push({ name: file.originalname, type: analysis.fileType, url: `/uploads/${safeName}` });
+          // Persist the file in DB
+          const fileBuffer = await fs.promises.readFile(file.path);
+          const savedFile = await prisma.file.create({
+            data: {
+              userId: userId,
+              name: file.originalname,
+              mimeType: file.mimetype,
+              data: fileBuffer,
+            }
+          });
+          
+          try {
+            fs.unlinkSync(file.path);
+          } catch (e) {
+            console.error("Error deleting temp file:", e);
+          }
+
+          fileInfos.push({ name: file.originalname, type: analysis.fileType, url: `/api/files/${savedFile.id}` });
         } catch (err) {
           console.error(`  ✖ Failed to analyze ${file.originalname}:`, err);
         }
       }
     }
 
-    // ── Step 2: Check Semantic Cache ───────────────────────────────────────────
+    // ── Step 2: Build search query (incorporate file keywords if present) ──────
+    let searchQuery = message;
+    if (fileContext) {
+      // Extract key terms from the file content to improve web search relevance
+      const fileWords = fileContext
+        .replace(/[^a-zA-Z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w: string) => w.length > 3)
+        .slice(0, 50); // Take first 50 meaningful words
+      // Remove duplicates and common stop words
+      const stopWords = new Set(["this", "that", "with", "from", "have", "been", "were", "will", "would", "could", "should", "their", "there", "they", "what", "when", "where", "which", "your", "about", "into", "more", "some", "than", "them", "then", "these", "those", "only", "other", "also", "just", "very", "file", "type", "words", "characters", "content", "links", "found"]);
+      const uniqueKeywords = [...new Set(fileWords.map((w: string) => w.toLowerCase()))].filter((w: string) => !stopWords.has(w));
+      const keywordsStr = uniqueKeywords.slice(0, 15).join(" ");
+      if (keywordsStr) {
+        searchQuery = `${message} ${keywordsStr}`;
+        console.log(`[search] Enhanced query with file keywords: "${searchQuery.slice(0, 120)}..."`);
+      }
+    }
+
+    // ── Step 3: Check Semantic Cache ───────────────────────────────────────────
     console.log("Checking semantic cache...");
-    const cacheMatch = await checkCache(message);
+    const cacheMatch = await checkCache(searchQuery);
     let webSearchResults: any[] = [];
     let aiResponse: any;
     
@@ -290,10 +403,10 @@ app.post(
       );
     } else {
       console.log("❌ Cache miss. Searching the web...");
-      webSearchResults = await searchWeb(message);
+      webSearchResults = await searchWeb(searchQuery);
       console.log(`Found ${webSearchResults.length} results`);
 
-      // ── Step 3: Generate AI response (with file context if present) ────────
+      // ── Step 4: Generate AI response (with file context if present) ────────
       console.log("Generating AI response...");
       aiResponse = await generateResponse(
         message,
@@ -303,7 +416,7 @@ app.post(
       console.log("Response generated");
       
       // Save the new response to cache asynchronously
-      saveToCache(message, aiResponse.answer, webSearchResults);
+      saveToCache(searchQuery, aiResponse.answer, webSearchResults);
     }
 
     // ── Step 4: Token accounting ────────────────────────────────────────────
