@@ -219,6 +219,9 @@ button:disabled { cursor: default; }
 }
 
 /* Logo */
+.dark img[src*="logo.png"] {
+  filter: invert(1);
+}
 .auth-logo-wrap {
   position: relative;
   z-index: 10;

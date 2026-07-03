@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/lib/auth";
 
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -16,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Purplexity — AI-Powered Search",
+  title: "Purplexity",
   description:
     "Purplexity is an AI-powered conversational search engine that delivers accurate, cited answers from across the web.",
   icons: {

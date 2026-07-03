@@ -81,8 +81,8 @@ export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConver
 
   const navItems = [
     { label: "Home", icon: Home, active: true },
-    { label: "Discover", icon: Compass, active: false },
-    { label: "Library", icon: Library, active: false },
+    { label: "Documents", icon: Compass, active: false },
+    { label: "Profile", icon: Library, active: false },
   ];
 
   return (
@@ -95,7 +95,7 @@ export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConver
 
       <AnimatePresence initial={false}>
         {isOpen && (
-          <motion.aside className="fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r border-sidebar-border bg-sidebar transition-colors" initial={{ x: -248 }} animate={{ x: 0 }} exit={{ x: -248 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
+          <motion.aside className="fixed inset-y-0 left-0 z-40 flex w-[300px] flex-col border-r border-sidebar-border bg-sidebar transition-colors" initial={{ x: -260 }} animate={{ x: 0 }} exit={{ x: -260 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
             <div className="flex h-16 items-center justify-between px-3">
               <button type="button" onClick={onNewChat} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-foreground">
                 <img src="/logo.png" alt="Purplexity Logo" className="h-[22px] w-auto" />
@@ -171,7 +171,7 @@ export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConver
                 <div className="flex items-center justify-between rounded-xl border border-border-subtle bg-surface p-3">
                   <div>
                     <p className="text-xs font-medium text-foreground">Guest workspace</p>
-                    <p className="mt-1 text-[11px] leading-4 text-text-subtle">Sign in to sync your research.</p>
+                    <p className="mt-1 text-[11px] leading-4 text-text-subtle">Sign in to secure research</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <ThemeToggle />

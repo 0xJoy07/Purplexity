@@ -338,7 +338,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
 
 
   return (
-    <section className={cn("relative flex h-screen min-w-0 flex-1 flex-col bg-background text-foreground transition-[margin] duration-200", sidebarOpen ? "lg:ml-[248px]" : "ml-0")}>
+    <section className={cn("relative flex h-screen min-w-0 flex-1 flex-col bg-background text-foreground transition-[margin] duration-200", sidebarOpen ? "lg:ml-[260px]" : "ml-0")}>
       <header className="absolute inset-x-0 top-0 z-20 flex h-16 items-center justify-end border-b border-transparent px-4 sm:px-6">
         {user ? (
           <div className="flex h-9 items-center gap-2 rounded-lg bg-surface-active px-3.5 text-xs font-medium text-foreground">
