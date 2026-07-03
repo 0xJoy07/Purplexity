@@ -138,7 +138,7 @@ async function extractFromPdf(buffer: Buffer): Promise<Pick<AnalysisResult, "tex
                     ocrTexts.push(ocrResult.text.trim());
                   }
                 } finally {
-                  await fs.unlink(tmpPath).catch(() => {});
+                  await fs.unlink(tmpPath).catch(() => { });
                 }
               }
             } catch (imgErr) {

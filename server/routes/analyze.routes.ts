@@ -50,10 +50,10 @@ router.post("/api/analyze", requireAuth, upload.single("file"), async (req: Requ
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const filePath    = req.file.path;
+    const filePath = req.file.path;
     const originalName = req.file.originalname;
-    const mime        = req.file.mimetype;
-    const userQuery   = (req.body.query as string | undefined)?.trim() || "";
+    const mime = req.file.mimetype;
+    const userQuery = (req.body.query as string | undefined)?.trim() || "";
 
     console.log(`[analyze] Received file: ${originalName} (${mime})`);
 
@@ -91,7 +91,7 @@ router.post("/api/analyze", requireAuth, upload.single("file"), async (req: Requ
     // ── Step 4: Persist the file in DB ───────────────────────────────────
     const userId = (req as any).auth?.userId;
     if (!userId) throw new Error("Unauthorized");
-    
+
     const fileBuffer = await fs.promises.readFile(filePath);
     const savedFile = await prisma.file.create({
       data: {
@@ -107,7 +107,7 @@ router.post("/api/analyze", requireAuth, upload.single("file"), async (req: Requ
     } catch (e) {
       console.error("[analyze] Error deleting temp file:", e);
     }
-    
+
     const fileUrl = `/api/files/${savedFile.id}`;
 
     // ── Step 5: Respond ─────────────────────────────────────────────────────
@@ -116,14 +116,14 @@ router.post("/api/analyze", requireAuth, upload.single("file"), async (req: Requ
       fileUrl,
       fileName: originalName,
       analysis: {
-        fileType:     analysis.fileType,
+        fileType: analysis.fileType,
         detectedMime: analysis.detectedMime,
-        wordCount:    analysis.wordCount,
-        charCount:    analysis.charCount,
-        linksFound:   analysis.links.length,
-        links:        analysis.links.slice(0, 10),
-        method:       analysis.method,
-        metadata:     analysis.metadata,
+        wordCount: analysis.wordCount,
+        charCount: analysis.charCount,
+        linksFound: analysis.links.length,
+        links: analysis.links.slice(0, 10),
+        method: analysis.method,
+        metadata: analysis.metadata,
       },
     });
   } catch (err: unknown) {
@@ -135,9 +135,9 @@ router.post("/api/analyze", requireAuth, upload.single("file"), async (req: Requ
 
 // ── LLM helper ──────────────────────────────────────────────────────────────
 async function callLLM(context: string, userQuery: string): Promise<string> {
-  const apiKey   = process.env.LLM_API_KEY;
+  const apiKey = process.env.LLM_API_KEY;
   const endpoint = process.env.LLM_ENDPOINT || "https://openrouter.ai/api/v1/chat/completions";
-  const model    = process.env.LLM_MODEL    || "anthropic/claude-3-sonnet";
+  const model = process.env.LLM_MODEL || "anthropic/claude-3-sonnet";
 
   if (!apiKey) throw new Error("LLM_API_KEY is not set in environment");
 
@@ -161,7 +161,7 @@ async function callLLM(context: string, userQuery: string): Promise<string> {
       model,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user",   content: userMessage },
+        { role: "user", content: userMessage },
       ],
     }),
   });
