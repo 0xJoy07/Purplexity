@@ -232,3 +232,78 @@ export async function deleteUserDocument(fileId: string, token: string): Promise
 export function getFileDownloadUrl(fileId: string): string {
   return `${API_BASE}/api/files/${fileId}`;
 }
+
+// ===== Profile / Auth Endpoints =====
+
+export async function updateProfile(data: FormData | { name: string; email: string }, token: string) {
+  let body: BodyInit;
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+  };
+
+  if (data instanceof FormData) {
+    body = data;
+  } else {
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify(data);
+  }
+
+  const res = await fetch(`${API_BASE}/auth/profile`, {
+    method: "PUT",
+    headers,
+    body,
+  });
+
+  if (!res.ok) {
+    let errMsg = "Failed to update profile";
+    try {
+      const errData = await res.json();
+      if (errData.error) errMsg = errData.error;
+    } catch (e) {}
+    throw new Error(errMsg);
+  }
+
+  return res.json();
+}
+
+export async function updatePassword(data: any, token: string) {
+  const res = await fetch(`${API_BASE}/auth/password`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    let errMsg = "Failed to update password";
+    try {
+      const errData = await res.json();
+      if (errData.error) errMsg = errData.error;
+    } catch (e) {}
+    throw new Error(errMsg);
+  }
+
+  return res.json();
+}
+
+export async function resendVerificationEmail(token: string) {
+  const res = await fetch(`${API_BASE}/auth/resend-verification`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    let errMsg = "Failed to resend verification email";
+    try {
+      const errData = await res.json();
+      if (errData.error) errMsg = errData.error;
+    } catch (e) {}
+    throw new Error(errMsg);
+  }
+
+  return res.json();
+}

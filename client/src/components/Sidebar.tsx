@@ -84,7 +84,7 @@ export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConver
   const navItems = [
     { label: "Home", icon: Home, href: "/" },
     { label: "Documents", icon: FileText, href: "/documents" },
-    { label: "Profile", icon: Library, href: "/profile" },
+    { label: "Profile", icon: User, href: "/profile" },
   ];
 
   return (

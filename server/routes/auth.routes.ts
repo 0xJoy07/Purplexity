@@ -6,6 +6,19 @@ import nodemailer from "nodemailer";
 import { randomUUID } from "crypto";
 import { blacklistToken, comparePassword, hashPassword, publicUser, sendVerificationEmail, signSession, verifyToken } from "../services/auth.service";
 import { requireAuth, type AuthRequest } from "../middleware/auth.middleware";
+import { createRequire } from "module";
+import path from "path";
+import fs from "fs";
+
+const _require = createRequire(import.meta.url);
+const multer = _require("multer");
+const __dirname = import.meta.dir;
+
+const upload = multer({
+  dest: path.join(__dirname, "../../uploads"),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB for profile pics
+});
+
 
 const router = Router();
 const cookieName = () => process.env.AUTH_COOKIE_NAME || "purplexity_session";
@@ -139,6 +152,114 @@ router.post("/reset-password", async (req, res) => {
     await prisma.user.update({ where: { id: payload.sub }, data: { passwordHash: await hashPassword(password) } });
     res.json({ message: "Password updated. You can now sign in." });
   } catch (error) { console.error("Reset password error:", error); res.status(500).json({ error: "Failed to reset password" }); }
+});
+
+// ── Update Profile ────────────────────────────────────────────────────────────
+router.put("/profile", requireAuth, upload.single("profileImage"), async (req: AuthRequest, res) => {
+  try {
+    const userId = req.auth!.userId;
+    const { name, email } = req.body;
+    
+    // We are going to prepare the data object for update
+    const updateData: any = {};
+    if (name) updateData.name = String(name).trim();
+    
+    if (email) {
+      const normalizedEmail = String(email).trim().toLowerCase();
+      // Check if email belongs to someone else
+      const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (existing && existing.id !== userId) {
+        return void res.status(409).json({ error: "Email is already in use by another account" });
+      }
+      
+      const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+      if (currentUser?.email !== normalizedEmail) {
+        updateData.email = normalizedEmail;
+        updateData.emailVerified = false; // They must re-verify
+      }
+    }
+
+    if (req.file) {
+      // User uploaded a profile image. Read it into DB as File.
+      const fileBuffer = await fs.promises.readFile(req.file.path);
+      const savedFile = await prisma.file.create({
+        data: {
+          userId,
+          name: req.file.originalname,
+          mimeType: req.file.mimetype,
+          data: fileBuffer,
+        }
+      });
+      // Delete temp file
+      try { fs.unlinkSync(req.file.path); } catch(e){}
+      updateData.profileImage = `/api/files/${savedFile.id}`;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return void res.status(400).json({ error: "No changes provided" });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData
+    });
+    
+    // If email changed, we should resend verification immediately
+    if (updateData.email) {
+      await sendVerificationEmail(updatedUser);
+    }
+
+    res.json({ user: publicUser(updatedUser), message: updateData.email ? "Profile updated. Please verify your new email address." : "Profile updated successfully." });
+  } catch (error) {
+    console.error("Profile update error:", error);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+// ── Update Password ───────────────────────────────────────────────────────────
+router.put("/password", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.auth!.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
+      return void res.status(400).json({ error: "Current password and a new password of at least 8 characters are required" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.provider !== "Credentials") {
+      return void res.status(400).json({ error: "Cannot change password for this account type" });
+    }
+
+    if (!user.passwordHash || !(await comparePassword(currentPassword, user.passwordHash))) {
+      return void res.status(401).json({ error: "Incorrect current password" });
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: await hashPassword(newPassword) }
+    });
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    console.error("Password update error:", error);
+    res.status(500).json({ error: "Failed to update password" });
+  }
+});
+
+// ── Resend Verification Email ─────────────────────────────────────────────────
+router.post("/resend-verification", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+    if (!user) return void res.status(404).json({ error: "User not found" });
+    if (user.emailVerified) return void res.status(400).json({ error: "Email is already verified" });
+    
+    await sendVerificationEmail(user);
+    res.json({ message: "Verification email sent. Please check your inbox." });
+  } catch (error) {
+    console.error("Resend verification error:", error);
+    res.status(500).json({ error: "Failed to send verification email" });
+  }
 });
 
 export default router;
