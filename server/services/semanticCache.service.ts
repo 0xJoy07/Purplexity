@@ -12,7 +12,7 @@ export async function checkCache(query: string, threshold = 0.85): Promise<Cache
   try {
     const embedding = await getEmbedding(query);
     
-    // We format the array to pgvector string format: '[1.0, 2.0, ...]'
+    // Format the array to pgvector string format '[1.0, 2.0, ...]'
     const embeddingStr = `[${embedding.join(',')}]`;
     
     // Perform vector similarity search
