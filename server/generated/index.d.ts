@@ -1634,12 +1634,16 @@ export namespace Prisma {
     tokenLimit: number | null
     tokensUsed: number | null
     dailyTokenLimit: number | null
+    tokensUsedToday: number | null
+    contextWindowLimit: number | null
   }
 
   export type UserSumAggregateOutputType = {
     tokenLimit: number | null
     tokensUsed: number | null
     dailyTokenLimit: number | null
+    tokensUsedToday: number | null
+    contextWindowLimit: number | null
   }
 
   export type UserMinAggregateOutputType = {
@@ -1653,6 +1657,9 @@ export namespace Prisma {
     tokenLimit: number | null
     tokensUsed: number | null
     dailyTokenLimit: number | null
+    tokensUsedToday: number | null
+    lastResetAt: Date | null
+    contextWindowLimit: number | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -1668,6 +1675,9 @@ export namespace Prisma {
     tokenLimit: number | null
     tokensUsed: number | null
     dailyTokenLimit: number | null
+    tokensUsedToday: number | null
+    lastResetAt: Date | null
+    contextWindowLimit: number | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -1683,6 +1693,9 @@ export namespace Prisma {
     tokenLimit: number
     tokensUsed: number
     dailyTokenLimit: number
+    tokensUsedToday: number
+    lastResetAt: number
+    contextWindowLimit: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -1693,12 +1706,16 @@ export namespace Prisma {
     tokenLimit?: true
     tokensUsed?: true
     dailyTokenLimit?: true
+    tokensUsedToday?: true
+    contextWindowLimit?: true
   }
 
   export type UserSumAggregateInputType = {
     tokenLimit?: true
     tokensUsed?: true
     dailyTokenLimit?: true
+    tokensUsedToday?: true
+    contextWindowLimit?: true
   }
 
   export type UserMinAggregateInputType = {
@@ -1712,6 +1729,9 @@ export namespace Prisma {
     tokenLimit?: true
     tokensUsed?: true
     dailyTokenLimit?: true
+    tokensUsedToday?: true
+    lastResetAt?: true
+    contextWindowLimit?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -1727,6 +1747,9 @@ export namespace Prisma {
     tokenLimit?: true
     tokensUsed?: true
     dailyTokenLimit?: true
+    tokensUsedToday?: true
+    lastResetAt?: true
+    contextWindowLimit?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -1742,6 +1765,9 @@ export namespace Prisma {
     tokenLimit?: true
     tokensUsed?: true
     dailyTokenLimit?: true
+    tokensUsedToday?: true
+    lastResetAt?: true
+    contextWindowLimit?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -1844,6 +1870,9 @@ export namespace Prisma {
     tokenLimit: number
     tokensUsed: number
     dailyTokenLimit: number
+    tokensUsedToday: number
+    lastResetAt: Date
+    contextWindowLimit: number
     createdAt: Date
     updatedAt: Date
     _count: UserCountAggregateOutputType | null
@@ -1878,6 +1907,9 @@ export namespace Prisma {
     tokenLimit?: boolean
     tokensUsed?: boolean
     dailyTokenLimit?: boolean
+    tokensUsedToday?: boolean
+    lastResetAt?: boolean
+    contextWindowLimit?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     conversations?: boolean | User$conversationsArgs<ExtArgs>
@@ -1899,6 +1931,9 @@ export namespace Prisma {
     tokenLimit?: boolean
     tokensUsed?: boolean
     dailyTokenLimit?: boolean
+    tokensUsedToday?: boolean
+    lastResetAt?: boolean
+    contextWindowLimit?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["user"]>
@@ -1914,6 +1949,9 @@ export namespace Prisma {
     tokenLimit?: boolean
     tokensUsed?: boolean
     dailyTokenLimit?: boolean
+    tokensUsedToday?: boolean
+    lastResetAt?: boolean
+    contextWindowLimit?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["user"]>
@@ -1929,11 +1967,14 @@ export namespace Prisma {
     tokenLimit?: boolean
     tokensUsed?: boolean
     dailyTokenLimit?: boolean
+    tokensUsedToday?: boolean
+    lastResetAt?: boolean
+    contextWindowLimit?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "email" | "provider" | "name" | "profileImage" | "passwordHash" | "emailVerified" | "tokenLimit" | "tokensUsed" | "dailyTokenLimit" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
+  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "email" | "provider" | "name" | "profileImage" | "passwordHash" | "emailVerified" | "tokenLimit" | "tokensUsed" | "dailyTokenLimit" | "tokensUsedToday" | "lastResetAt" | "contextWindowLimit" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
   export type UserInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversations?: boolean | User$conversationsArgs<ExtArgs>
     queries?: boolean | User$queriesArgs<ExtArgs>
@@ -1965,6 +2006,9 @@ export namespace Prisma {
       tokenLimit: number
       tokensUsed: number
       dailyTokenLimit: number
+      tokensUsedToday: number
+      lastResetAt: Date
+      contextWindowLimit: number
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["user"]>
@@ -2405,6 +2449,9 @@ export namespace Prisma {
     readonly tokenLimit: FieldRef<"User", 'Int'>
     readonly tokensUsed: FieldRef<"User", 'Int'>
     readonly dailyTokenLimit: FieldRef<"User", 'Int'>
+    readonly tokensUsedToday: FieldRef<"User", 'Int'>
+    readonly lastResetAt: FieldRef<"User", 'DateTime'>
+    readonly contextWindowLimit: FieldRef<"User", 'Int'>
     readonly createdAt: FieldRef<"User", 'DateTime'>
     readonly updatedAt: FieldRef<"User", 'DateTime'>
   }
@@ -10288,6 +10335,9 @@ export namespace Prisma {
     tokenLimit: 'tokenLimit',
     tokensUsed: 'tokensUsed',
     dailyTokenLimit: 'dailyTokenLimit',
+    tokensUsedToday: 'tokensUsedToday',
+    lastResetAt: 'lastResetAt',
+    contextWindowLimit: 'contextWindowLimit',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -10568,6 +10618,9 @@ export namespace Prisma {
     tokenLimit?: IntFilter<"User"> | number
     tokensUsed?: IntFilter<"User"> | number
     dailyTokenLimit?: IntFilter<"User"> | number
+    tokensUsedToday?: IntFilter<"User"> | number
+    lastResetAt?: DateTimeFilter<"User"> | Date | string
+    contextWindowLimit?: IntFilter<"User"> | number
     createdAt?: DateTimeFilter<"User"> | Date | string
     updatedAt?: DateTimeFilter<"User"> | Date | string
     conversations?: ConversationListRelationFilter
@@ -10588,6 +10641,9 @@ export namespace Prisma {
     tokenLimit?: SortOrder
     tokensUsed?: SortOrder
     dailyTokenLimit?: SortOrder
+    tokensUsedToday?: SortOrder
+    lastResetAt?: SortOrder
+    contextWindowLimit?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     conversations?: ConversationOrderByRelationAggregateInput
@@ -10611,6 +10667,9 @@ export namespace Prisma {
     tokenLimit?: IntFilter<"User"> | number
     tokensUsed?: IntFilter<"User"> | number
     dailyTokenLimit?: IntFilter<"User"> | number
+    tokensUsedToday?: IntFilter<"User"> | number
+    lastResetAt?: DateTimeFilter<"User"> | Date | string
+    contextWindowLimit?: IntFilter<"User"> | number
     createdAt?: DateTimeFilter<"User"> | Date | string
     updatedAt?: DateTimeFilter<"User"> | Date | string
     conversations?: ConversationListRelationFilter
@@ -10631,6 +10690,9 @@ export namespace Prisma {
     tokenLimit?: SortOrder
     tokensUsed?: SortOrder
     dailyTokenLimit?: SortOrder
+    tokensUsedToday?: SortOrder
+    lastResetAt?: SortOrder
+    contextWindowLimit?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: UserCountOrderByAggregateInput
@@ -10654,6 +10716,9 @@ export namespace Prisma {
     tokenLimit?: IntWithAggregatesFilter<"User"> | number
     tokensUsed?: IntWithAggregatesFilter<"User"> | number
     dailyTokenLimit?: IntWithAggregatesFilter<"User"> | number
+    tokensUsedToday?: IntWithAggregatesFilter<"User"> | number
+    lastResetAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
+    contextWindowLimit?: IntWithAggregatesFilter<"User"> | number
     createdAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
   }
@@ -11092,6 +11157,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     conversations?: ConversationCreateNestedManyWithoutUserInput
@@ -11112,6 +11180,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     conversations?: ConversationUncheckedCreateNestedManyWithoutUserInput
@@ -11132,6 +11203,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversations?: ConversationUpdateManyWithoutUserNestedInput
@@ -11152,6 +11226,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversations?: ConversationUncheckedUpdateManyWithoutUserNestedInput
@@ -11172,6 +11249,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -11187,6 +11267,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -11202,6 +11285,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -11751,6 +11837,9 @@ export namespace Prisma {
     tokenLimit?: SortOrder
     tokensUsed?: SortOrder
     dailyTokenLimit?: SortOrder
+    tokensUsedToday?: SortOrder
+    lastResetAt?: SortOrder
+    contextWindowLimit?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -11759,6 +11848,8 @@ export namespace Prisma {
     tokenLimit?: SortOrder
     tokensUsed?: SortOrder
     dailyTokenLimit?: SortOrder
+    tokensUsedToday?: SortOrder
+    contextWindowLimit?: SortOrder
   }
 
   export type UserMaxOrderByAggregateInput = {
@@ -11772,6 +11863,9 @@ export namespace Prisma {
     tokenLimit?: SortOrder
     tokensUsed?: SortOrder
     dailyTokenLimit?: SortOrder
+    tokensUsedToday?: SortOrder
+    lastResetAt?: SortOrder
+    contextWindowLimit?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -11787,6 +11881,9 @@ export namespace Prisma {
     tokenLimit?: SortOrder
     tokensUsed?: SortOrder
     dailyTokenLimit?: SortOrder
+    tokensUsedToday?: SortOrder
+    lastResetAt?: SortOrder
+    contextWindowLimit?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -11795,6 +11892,8 @@ export namespace Prisma {
     tokenLimit?: SortOrder
     tokensUsed?: SortOrder
     dailyTokenLimit?: SortOrder
+    tokensUsedToday?: SortOrder
+    contextWindowLimit?: SortOrder
   }
 
   export type StringWithAggregatesFilter<$PrismaModel = never> = {
@@ -13154,6 +13253,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     conversations?: ConversationCreateNestedManyWithoutUserInput
@@ -13173,6 +13275,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     conversations?: ConversationUncheckedCreateNestedManyWithoutUserInput
@@ -13208,6 +13313,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversations?: ConversationUpdateManyWithoutUserNestedInput
@@ -13227,6 +13335,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversations?: ConversationUncheckedUpdateManyWithoutUserNestedInput
@@ -13246,6 +13357,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     queries?: QueryCreateNestedManyWithoutUserInput
@@ -13265,6 +13379,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     queries?: QueryUncheckedCreateNestedManyWithoutUserInput
@@ -13328,6 +13445,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     queries?: QueryUpdateManyWithoutUserNestedInput
@@ -13347,6 +13467,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     queries?: QueryUncheckedUpdateManyWithoutUserNestedInput
@@ -13443,6 +13566,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     conversations?: ConversationCreateNestedManyWithoutUserInput
@@ -13462,6 +13588,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     conversations?: ConversationUncheckedCreateNestedManyWithoutUserInput
@@ -13497,6 +13626,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversations?: ConversationUpdateManyWithoutUserNestedInput
@@ -13516,6 +13648,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversations?: ConversationUncheckedUpdateManyWithoutUserNestedInput
@@ -13535,6 +13670,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     conversations?: ConversationCreateNestedManyWithoutUserInput
@@ -13554,6 +13692,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     conversations?: ConversationUncheckedCreateNestedManyWithoutUserInput
@@ -13589,6 +13730,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversations?: ConversationUpdateManyWithoutUserNestedInput
@@ -13608,6 +13752,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversations?: ConversationUncheckedUpdateManyWithoutUserNestedInput
@@ -13627,6 +13774,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     conversations?: ConversationCreateNestedManyWithoutUserInput
@@ -13646,6 +13796,9 @@ export namespace Prisma {
     tokenLimit?: number
     tokensUsed?: number
     dailyTokenLimit?: number
+    tokensUsedToday?: number
+    lastResetAt?: Date | string
+    contextWindowLimit?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     conversations?: ConversationUncheckedCreateNestedManyWithoutUserInput
@@ -13681,6 +13834,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversations?: ConversationUpdateManyWithoutUserNestedInput
@@ -13700,6 +13856,9 @@ export namespace Prisma {
     tokenLimit?: IntFieldUpdateOperationsInput | number
     tokensUsed?: IntFieldUpdateOperationsInput | number
     dailyTokenLimit?: IntFieldUpdateOperationsInput | number
+    tokensUsedToday?: IntFieldUpdateOperationsInput | number
+    lastResetAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contextWindowLimit?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversations?: ConversationUncheckedUpdateManyWithoutUserNestedInput

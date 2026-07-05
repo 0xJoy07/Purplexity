@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
+import { getTokenUsage, type TokenUsageResponse } from './api';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -17,16 +18,28 @@ export interface AuthUser {
   provider: string;
 }
 
+export interface TokenUsageState {
+  tokensUsedToday: number;
+  tokensRemaining: number;
+  dailyLimit: number;
+  contextWindowLimit: number;
+  resetTime: string;
+  canMakeRequest: boolean;
+}
+
 interface AuthContextType {
   user: AuthUser | null;
   token: string | null;
   isLoading: boolean;
+  tokenUsage: TokenUsageState | null;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<{ message: string }>;
   logout: () => Promise<void>;
   loginWithGoogle: () => void;
   loginWithGithub: () => void;
   refreshUser: () => Promise<void>;
+  refreshTokenUsage: () => Promise<void>;
+  updateTokenUsage: (usage: Partial<TokenUsageState>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -35,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [tokenUsage, setTokenUsage] = useState<TokenUsageState | null>(null);
 
   // Fetch /me from our Express server using our JWT
   const fetchMe = useCallback(async (jwt: string): Promise<AuthUser | null> => {
@@ -133,6 +147,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { mounted = false; subscription.unsubscribe(); };
   }, [syncOAuthUser, refreshUser]);
 
+  // ── Fetch token usage when user is available ────────────────────────────────
+  const refreshTokenUsage = useCallback(async () => {
+    const currentUser = user;
+    const currentToken = token || localStorage.getItem('authToken');
+    if (!currentUser || !currentToken) return;
+    try {
+      const usage = await getTokenUsage(currentUser.id, currentToken);
+      setTokenUsage({
+        tokensUsedToday: usage.tokensUsedToday,
+        tokensRemaining: usage.tokensRemaining,
+        dailyLimit: usage.dailyLimit,
+        contextWindowLimit: usage.contextWindowLimit,
+        resetTime: usage.resetTime,
+        canMakeRequest: usage.canMakeRequest,
+      });
+    } catch (err) {
+      console.error('Failed to fetch token usage:', err);
+    }
+  }, [user, token]);
+
+  const updateTokenUsage = useCallback((usage: Partial<TokenUsageState>) => {
+    setTokenUsage(prev => prev ? { ...prev, ...usage } : null);
+  }, []);
+
+  useEffect(() => {
+    if (user && token) refreshTokenUsage();
+  }, [user, token, refreshTokenUsage]);
+
   // ── Email/password login (our Express server) ───────────────────────────────
   const login = async (email: string, password: string) => {
     const res = await fetch(`${API_BASE}/auth/login`, {
@@ -193,7 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, loginWithGoogle, loginWithGithub, refreshUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, tokenUsage, login, register, logout, loginWithGoogle, loginWithGithub, refreshUser, refreshTokenUsage, updateTokenUsage }}>
       {children}
     </AuthContext.Provider>
   );

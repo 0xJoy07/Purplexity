@@ -17,6 +17,7 @@ const schema = z.object({
 export interface AIResponse {
   answer: string;
   followUps: string[];
+  actualTokensUsed: number;
 }
 
 export async function generateResponse(
@@ -52,6 +53,12 @@ export async function generateResponse(
     },
   });
 
+  // Extract actual token usage from the API response
+  const promptTokens = completion.usage?.prompt_tokens ?? 0;
+  const completionTokens = completion.usage?.completion_tokens ?? 0;
+  const actualTokensUsed = promptTokens + completionTokens;
+  console.log(`📊 API token usage: prompt=${promptTokens}, completion=${completionTokens}, total=${actualTokensUsed}`);
+
   const raw = completion.choices[0]?.message?.content ?? "{}";
   
   console.log("🔍 Raw LLM response:", raw);
@@ -80,12 +87,14 @@ export async function generateResponse(
     return {
       answer: result.answer,
       followUps: result.followUps,
+      actualTokensUsed: actualTokensUsed || 0,
     };
   } catch (err) {
     console.error("❌ Schema validation or parse failed, falling back.", err);
     return {
       answer: "Sorry, I encountered an error while processing the response. Please try asking again.",
-      followUps: []
+      followUps: [],
+      actualTokensUsed: actualTokensUsed || 0,
     };
   }
 }

@@ -131,6 +131,9 @@ exports.Prisma.UserScalarFieldEnum = {
   tokenLimit: 'tokenLimit',
   tokensUsed: 'tokensUsed',
   dailyTokenLimit: 'dailyTokenLimit',
+  tokensUsedToday: 'tokensUsedToday',
+  lastResetAt: 'lastResetAt',
+  contextWindowLimit: 'contextWindowLimit',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };

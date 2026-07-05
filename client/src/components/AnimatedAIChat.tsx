@@ -36,6 +36,7 @@ import { MarkdownRenderer } from "./MarkdownRenderer";
 import { ResponseStream } from "./ui/response-stream";
 import { ClaudeChatInput } from "./ui/claude-style-chat-input";
 import { useAuth } from "@/lib/auth";
+import { TokenUsageIndicator, ContextTrimmedToast, QuotaExceededToast } from "./TokenUsageIndicator";
 import Link from "next/link";
 
 
@@ -126,11 +127,14 @@ function SourcesList({ message }: { message: Message }) {
 }
 
 export function AnimatedAIChat({ activeConversationId, onConversationCreated, sidebarOpen }: AnimatedAIChatProps) {
-  const { user, token } = useAuth();
+  const { user, token, tokenUsage, refreshTokenUsage, updateTokenUsage } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [newMessageId, setNewMessageId] = useState<string | null>(null);
+  const [showContextTrimmed, setShowContextTrimmed] = useState(false);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const [quotaResetTime, setQuotaResetTime] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastLoadedIdRef = useRef<string | null>(null);
 
@@ -229,8 +233,31 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
         { ...response.userMessage, id: optimistic.id },
         response.assistantMessage,
       ]);
-    } catch (error) {
+
+      // Update token usage from the response
+      if (response.tokenUsage) {
+        updateTokenUsage({
+          tokensUsedToday: response.tokenUsage.tokensUsedToday,
+          tokensRemaining: response.tokenUsage.tokensRemaining,
+          dailyLimit: response.tokenUsage.dailyLimit,
+          contextWindowLimit: response.tokenUsage.contextWindowLimit,
+          resetTime: response.tokenUsage.resetTime,
+          canMakeRequest: response.tokenUsage.tokensRemaining > 0,
+        });
+      }
+
+      // Show context trimmed toast if applicable
+      if (response.contextTrimmed) {
+        setShowContextTrimmed(true);
+        setTimeout(() => setShowContextTrimmed(false), 8000);
+      }
+    } catch (error: any) {
       console.error(error);
+      if (error?.status === 429) {
+        setQuotaExceeded(true);
+        setQuotaResetTime(error?.tokenUsage?.resetTime || "");
+        updateTokenUsage({ canMakeRequest: false, tokensRemaining: 0 });
+      }
       setMessages((current) => current.filter((message) => message.id !== optimistic.id));
     } finally {
       setIsTyping(false);
@@ -388,6 +415,12 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
 
               <ClaudeChatInput onSendMessage={handleSendMessage} compact={false} />
 
+              <div className="mt-3 space-y-2">
+                <TokenUsageIndicator />
+                <ContextTrimmedToast visible={showContextTrimmed} onDismiss={() => setShowContextTrimmed(false)} />
+                <QuotaExceededToast visible={quotaExceeded} resetTime={quotaResetTime} />
+              </div>
+
               <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {suggestions.map(({ icon: Icon, eyebrow, label, query }, index) => (
                   <motion.button key={label} type="button" onClick={() => submitQuery(query)} className="group flex min-h-[74px] items-start gap-3 rounded-xl border border-transparent px-3.5 py-3 text-left transition-colors hover:border-border hover:bg-surface" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 + index * 0.05 }}>
@@ -457,8 +490,13 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
             </div>
 
             <div className="border-t border-border bg-composer/95 px-4 pb-4 pt-3 backdrop-blur sm:px-8">
-              <div className="mx-auto w-full max-w-[760px]">
+              <div className="mx-auto w-full max-w-[760px] space-y-2">
                  <ClaudeChatInput onSendMessage={handleSendMessage} compact={true} />
+                 <div className="flex items-center gap-3">
+                   <TokenUsageIndicator compact className="flex-1" />
+                   <ContextTrimmedToast visible={showContextTrimmed} onDismiss={() => setShowContextTrimmed(false)} />
+                 </div>
+                 <QuotaExceededToast visible={quotaExceeded} resetTime={quotaResetTime} />
               </div>
             </div>
           </motion.main>

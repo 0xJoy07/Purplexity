@@ -24,6 +24,9 @@ model User {
   tokenLimit    Int            @default(100000) @map("token_limit")
   tokensUsed    Int            @default(0) @map("tokens_used")
   dailyTokenLimit Int          @default(100000) @map("daily_token_limit")
+  tokensUsedToday Int          @default(0) @map("tokens_used_today")
+  lastResetAt   DateTime       @default(now()) @map("last_reset_at")
+  contextWindowLimit Int       @default(50000) @map("context_window_limit")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
   

@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { createGuestUser } from "../services/guest.service";
-import { getTodayTokenUsage } from "../services/token.service";
+import { getTodayTokenUsage, getNextResetTimeIST } from "../services/token.service";
 
 /**
  * Ensures requests that need a user always have a persisted user record.
@@ -26,6 +26,10 @@ export async function ensureUserId(
   }
 }
 
+/**
+ * Middleware: check whether the user has daily tokens remaining.
+ * Performs a daily reset check (IST-based) before evaluating the quota.
+ */
 export async function checkTokenLimit(
   req: Request,
   res: Response,
@@ -39,34 +43,31 @@ export async function checkTokenLimit(
       return;
     }
 
+    // getTodayTokenUsage already calls checkAndResetDaily internally
     const tokenInfo = await getTodayTokenUsage(userId);
 
     if (!tokenInfo.canMakeRequest) {
+      const resetTime = getNextResetTimeIST();
       res.status(429).json({
-        error: "Daily token limit exceeded",
-        message: "You have used all your tokens for today. Please try again tomorrow.",
+        error: "Daily token limit reached",
+        message: `You have used all your tokens for today. Resets at 12:00 AM IST.`,
         tokenUsage: {
-          tokensUsed: tokenInfo.tokensUsed,
+          tokensUsedToday: tokenInfo.tokensUsedToday,
           tokensRemaining: 0,
           dailyLimit: tokenInfo.dailyLimit,
+          contextWindowLimit: tokenInfo.contextWindowLimit,
           requestCount: tokenInfo.requestCount,
-          resetTime: getNextResetTime(),
+          resetTime,
         },
       });
       return;
     }
 
+    // Attach token info for downstream handlers
     (req as any).tokenInfo = tokenInfo;
     next();
   } catch (error) {
     console.error("Token limit check error:", error);
     res.status(500).json({ error: "Failed to check token limit" });
   }
-}
-
-function getNextResetTime(): string {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
-  return tomorrow.toISOString();
 }

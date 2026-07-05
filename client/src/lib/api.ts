@@ -1,5 +1,26 @@
 const API_BASE = "http://localhost:5000";
 
+// ===== Token Usage =====
+
+export interface TokenUsageResponse {
+  userId: string;
+  tokensUsedToday: number;
+  tokensRemaining: number;
+  dailyLimit: number;
+  contextWindowLimit: number;
+  requestCount: number;
+  canMakeRequest: boolean;
+  resetTime: string;
+}
+
+export async function getTokenUsage(userId: string, token: string): Promise<TokenUsageResponse> {
+  const res = await fetch(`${API_BASE}/tokens/${userId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Failed to fetch token usage");
+  return res.json();
+}
+
 export interface Source {
   title: string;
   url: string;
@@ -175,11 +196,12 @@ export async function sendMessage(
 
   if (!res.ok) {
     if (res.status === 429) {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("guestToken");
-        localStorage.removeItem("guestUserId");
-        window.location.reload();
-      }
+      let errorData: any = {};
+      try { errorData = await res.json(); } catch {}
+      const err = new Error(errorData.message || "Daily token limit reached") as any;
+      err.status = 429;
+      err.tokenUsage = errorData.tokenUsage;
+      throw err;
     }
     let errMsg = "Failed to send message";
     try {
@@ -196,7 +218,15 @@ export async function sendMessage(
     sources: Source[];
     followUps: string[];
     attachments?: { name: string; type: string; url: string }[];
-    tokenUsage: any;
+    contextTrimmed?: boolean;
+    tokenUsage: {
+      tokensUsedToday: number;
+      tokensRemaining: number;
+      dailyLimit: number;
+      contextWindowLimit: number;
+      requestCount: number;
+      resetTime: string;
+    };
   }>;
 }
 

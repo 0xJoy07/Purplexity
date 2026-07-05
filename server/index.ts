@@ -20,6 +20,9 @@ import {
   trackTokenUsage,
   getTodayTokenUsage,
   getUserTokenHistory,
+  estimateContextTokens,
+  trimContextToFit,
+  getNextResetTimeIST,
 } from "./services/token.service";
 import { checkTokenLimit, ensureUserId } from "./middleware/tokenLimit.middleware";
 import {
@@ -156,7 +159,9 @@ testDatabaseConnection();
 app.post("/purplexity_ask", requireAuth, checkTokenLimit, async (req: Request, res: Response) => {
   try {
     const query: string = req.body.query;
-    const userId: string = req.body.userId
+    const userId: string = req.body.userId;
+    const reqTokenInfo = (req as any).tokenInfo;
+    const contextWindowLimit = reqTokenInfo?.contextWindowLimit ?? 50000;
 
     if (!query) {
       res.status(400).json({ error: "query is required" });
@@ -170,6 +175,7 @@ app.post("/purplexity_ask", requireAuth, checkTokenLimit, async (req: Request, r
     const cacheMatch = await checkCache(query);
     let webSearchResults: any[] = [];
     let aiResponse: any;
+    let contextTrimmed = false;
     
     if (cacheMatch) {
       console.log("✅ Cache hit! Skipping web search.");
@@ -177,15 +183,30 @@ app.post("/purplexity_ask", requireAuth, checkTokenLimit, async (req: Request, r
       
       const cachedContext = `[CACHED INFORMATION FOUND]\nWe found this information in our database for a similar query: ${cacheMatch.response}`;
       
-      aiResponse = await generateResponse(
-        query,
-        [],
-        cachedContext
-      );
+      // Pre-flight context window check
+      const estimated = estimateContextTokens(query, JSON.stringify([]), undefined, cachedContext);
+      if (estimated > contextWindowLimit) {
+        const trimResult = trimContextToFit(query, JSON.stringify([]), undefined, cachedContext, contextWindowLimit);
+        contextTrimmed = trimResult.contextTrimmed;
+        console.log(`⚠️ Context trimmed: ${trimResult.trimDetails}`);
+        aiResponse = await generateResponse(query, [], trimResult.fileContext || undefined);
+      } else {
+        aiResponse = await generateResponse(query, [], cachedContext);
+      }
     } else {
       console.log("❌ Cache miss. Searching the web...");
       webSearchResults = await searchWeb(query);
       console.log(`Found ${webSearchResults.length} results`);
+
+      // Pre-flight context window check
+      const webResultsStr = JSON.stringify(webSearchResults);
+      const estimated = estimateContextTokens(query, webResultsStr);
+      if (estimated > contextWindowLimit) {
+        const trimResult = trimContextToFit(query, webResultsStr, undefined, undefined, contextWindowLimit);
+        contextTrimmed = trimResult.contextTrimmed;
+        console.log(`⚠️ Context trimmed: ${trimResult.trimDetails}`);
+        try { webSearchResults = JSON.parse(trimResult.webResults); } catch {}
+      }
 
       // Step 2: Generate AI response
       console.log("Generating AI response...");
@@ -196,14 +217,15 @@ app.post("/purplexity_ask", requireAuth, checkTokenLimit, async (req: Request, r
       saveToCache(query, aiResponse.answer, webSearchResults);
     }
 
-    // Step 3: Calculate tokens used
-    const webResultsText = JSON.stringify(webSearchResults);
-    const tokensUsed = calculateRequestTokens(query, webResultsText, aiResponse.answer);
-    console.log(`Tokens used: ${tokensUsed}`);
+    // Step 3: Use actual token count from API, fallback to estimate
+    const tokensUsed = aiResponse.actualTokensUsed > 0
+      ? aiResponse.actualTokensUsed
+      : calculateRequestTokens(query, JSON.stringify(webSearchResults), aiResponse.answer);
+    console.log(`Tokens used: ${tokensUsed} (${aiResponse.actualTokensUsed > 0 ? 'actual' : 'estimated'})`);
 
-    // Step 4: Track token usage
+    // Step 4: Track token usage (daily)
     const tokenInfo = await trackTokenUsage(userId, tokensUsed);
-    console.log(`Tokens remaining: ${tokenInfo.tokensRemaining}`);
+    console.log(`Tokens remaining today: ${tokenInfo.tokensRemaining}`);
 
     // Step 5: Save to database
     try {
@@ -219,7 +241,7 @@ app.post("/purplexity_ask", requireAuth, checkTokenLimit, async (req: Request, r
       console.error("Failed to save to database:", dbError);
     }
 
-    // Format response: <ANSWER>...</ANSWER><FOLLOW UP>...</FOLLOW UP><TOKENS>...</TOKENS>
+    // Format response
     const formattedResponse = `<ANSWER>${aiResponse.answer}</ANSWER><FOLLOW UP>${aiResponse.followUps.join("; ")}</FOLLOW UP><TOKENS>${tokenInfo.tokensRemaining} tokens remaining today</TOKENS>`;
 
     res.send(formattedResponse);
@@ -383,6 +405,11 @@ app.post(
       }
     }
 
+    // ── Context window limit ────────────────────────────────────────────────
+    const reqTokenInfo = (req as any).tokenInfo;
+    const contextWindowLimit = reqTokenInfo?.contextWindowLimit ?? 50000;
+    let contextTrimmed = false;
+
     // ── Step 3: Check Semantic Cache ───────────────────────────────────────────
     console.log("Checking semantic cache...");
     const cacheMatch = await checkCache(searchQuery);
@@ -393,25 +420,42 @@ app.post(
       console.log("✅ Cache hit! Skipping web search.");
       webSearchResults = cacheMatch.sources;
       
-      // Still call AI but with cached data as context instead of searching the web again.
       const cachedContext = `[CACHED INFORMATION FOUND]\nWe found this information in our database for a similar query: ${cacheMatch.response}`;
+      let effectiveFileContext = fileContext ? fileContext + '\n\n' + cachedContext : cachedContext;
+
+      // Pre-flight context window check
+      const estimated = estimateContextTokens(message, JSON.stringify([]), undefined, effectiveFileContext);
+      if (estimated > contextWindowLimit) {
+        const trimResult = trimContextToFit(message, JSON.stringify([]), undefined, effectiveFileContext, contextWindowLimit);
+        contextTrimmed = trimResult.contextTrimmed;
+        effectiveFileContext = trimResult.fileContext || cachedContext;
+        console.log(`⚠️ Context trimmed: ${trimResult.trimDetails}`);
+      }
       
-      aiResponse = await generateResponse(
-        message,
-        [], // No new web search results needed
-        (fileContext ? fileContext + '\n\n' : '') + cachedContext
-      );
+      aiResponse = await generateResponse(message, [], effectiveFileContext);
     } else {
       console.log("❌ Cache miss. Searching the web...");
       webSearchResults = await searchWeb(searchQuery);
       console.log(`Found ${webSearchResults.length} results`);
+
+      // Pre-flight context window check
+      const webResultsStr = JSON.stringify(webSearchResults);
+      const estimated = estimateContextTokens(message, webResultsStr, undefined, fileContext || undefined);
+      let effectiveFileContext = fileContext || undefined;
+      if (estimated > contextWindowLimit) {
+        const trimResult = trimContextToFit(message, webResultsStr, undefined, effectiveFileContext, contextWindowLimit);
+        contextTrimmed = trimResult.contextTrimmed;
+        effectiveFileContext = trimResult.fileContext || undefined;
+        try { webSearchResults = JSON.parse(trimResult.webResults); } catch {}
+        console.log(`⚠️ Context trimmed: ${trimResult.trimDetails}`);
+      }
 
       // ── Step 4: Generate AI response (with file context if present) ────────
       console.log("Generating AI response...");
       aiResponse = await generateResponse(
         message,
         webSearchResults,
-        fileContext || undefined
+        effectiveFileContext
       );
       console.log("Response generated");
       
@@ -419,13 +463,14 @@ app.post(
       saveToCache(searchQuery, aiResponse.answer, webSearchResults);
     }
 
-    // ── Step 4: Token accounting ────────────────────────────────────────────
-    const webResultsText = JSON.stringify(webSearchResults);
-    const tokensUsed = calculateRequestTokens(message + fileContext, webResultsText, aiResponse.answer);
-    console.log(`Tokens used: ${tokensUsed}`);
+    // ── Step 4: Token accounting (use actual API count, fallback to estimate) ──
+    const tokensUsed = aiResponse.actualTokensUsed > 0
+      ? aiResponse.actualTokensUsed
+      : calculateRequestTokens(message + (fileContext || ""), JSON.stringify(webSearchResults), aiResponse.answer);
+    console.log(`Tokens used: ${tokensUsed} (${aiResponse.actualTokensUsed > 0 ? 'actual' : 'estimated'})`);
 
     const tokenInfo = await trackTokenUsage(userId, tokensUsed);
-    console.log(`Tokens remaining: ${tokenInfo.tokensRemaining}`);
+    console.log(`Tokens remaining today: ${tokenInfo.tokensRemaining}`);
 
     // ── Step 5: Save messages to conversation ──────────────────────────────
     const sources = webSearchResults.map((r) => ({ title: r.title, url: r.url }));
@@ -448,11 +493,14 @@ app.post(
       sources,
       followUps: aiResponse.followUps,
       attachments: fileInfos,
+      contextTrimmed,
       tokenUsage: {
-        tokensUsed,
+        tokensUsedToday: tokenInfo.tokensUsedToday,
         tokensRemaining: tokenInfo.tokensRemaining,
         dailyLimit: tokenInfo.dailyLimit,
+        contextWindowLimit: tokenInfo.contextWindowLimit,
         requestCount: tokenInfo.requestCount,
+        resetTime: tokenInfo.resetTime,
       },
     });
   } catch (error) {
