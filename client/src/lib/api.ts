@@ -337,3 +337,81 @@ export async function resendVerificationEmail(token: string) {
 
   return res.json();
 }
+
+// ===== Settings Page APIs =====
+
+export async function deleteAccount(confirmEmail: string, token: string) {
+  const res = await fetch(`${API_BASE}/auth/account`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ confirmEmail }),
+  });
+
+  if (!res.ok) {
+    let errMsg = "Failed to delete account";
+    try {
+      const errData = await res.json();
+      if (errData.error) errMsg = errData.error;
+    } catch (e) {}
+    throw new Error(errMsg);
+  }
+
+  return res.json();
+}
+
+export async function clearSearchHistory(token: string) {
+  const res = await fetch(`${API_BASE}/auth/search-history`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    let errMsg = "Failed to clear search history";
+    try {
+      const errData = await res.json();
+      if (errData.error) errMsg = errData.error;
+    } catch (e) {}
+    throw new Error(errMsg);
+  }
+
+  return res.json();
+}
+
+export async function getActiveSessions(token: string) {
+  const res = await fetch(`${API_BASE}/auth/sessions`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) throw new Error("Failed to fetch sessions");
+  return res.json();
+}
+
+export async function signOutAllDevices(token: string) {
+  const res = await fetch(`${API_BASE}/auth/sign-out-all`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) throw new Error("Failed to sign out of all devices");
+  return res.json();
+}
+
+export async function getTokenHistory(userId: string, token: string, days = 7) {
+  const res = await fetch(`${API_BASE}/tokens/${userId}/history?days=${days}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) throw new Error("Failed to fetch token history");
+  return res.json();
+}

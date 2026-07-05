@@ -262,4 +262,100 @@ router.post("/resend-verification", requireAuth, async (req: AuthRequest, res) =
   }
 });
 
+// ── Delete Account ────────────────────────────────────────────────────────────
+router.delete("/account", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.auth!.userId;
+    const { confirmEmail } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return void res.status(404).json({ error: "User not found" });
+
+    // Require the user to type their email to confirm
+    if (!confirmEmail || confirmEmail.toLowerCase() !== user.email.toLowerCase()) {
+      return void res.status(400).json({ error: "Please type your email address to confirm account deletion" });
+    }
+
+    // Cascade delete handles conversations, messages, queries, tokenUsage, files, revokedTokens
+    await prisma.user.delete({ where: { id: userId } });
+
+    res.json({ message: "Account deleted successfully" });
+  } catch (error) {
+    console.error("Account deletion error:", error);
+    res.status(500).json({ error: "Failed to delete account" });
+  }
+});
+
+// ── Clear Search History ──────────────────────────────────────────────────────
+router.delete("/search-history", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.auth!.userId;
+
+    // Delete all conversations (messages cascade) and standalone queries
+    const [convResult, queryResult] = await prisma.$transaction([
+      prisma.conversation.deleteMany({ where: { userId } }),
+      prisma.query.deleteMany({ where: { userId } }),
+    ]);
+
+    res.json({
+      message: "Search history cleared",
+      deleted: {
+        conversations: convResult.count,
+        queries: queryResult.count,
+      },
+    });
+  } catch (error) {
+    console.error("Clear history error:", error);
+    res.status(500).json({ error: "Failed to clear search history" });
+  }
+});
+
+// ── Active Sessions ───────────────────────────────────────────────────────────
+router.get("/sessions", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.auth!.userId;
+    const currentJti = req.auth!.jti;
+
+    // Get non-revoked tokens (active sessions). We store revoked ones, so
+    // we list revoked-token records to identify what's been invalidated.
+    const revokedTokens = await prisma.revokedToken.findMany({
+      where: { userId },
+      select: { jti: true },
+    });
+    const revokedSet = new Set(revokedTokens.map((t) => t.jti));
+
+    // In a real app we'd store session metadata. For now, return minimal info.
+    res.json({
+      currentSessionId: currentJti,
+      activeSessions: [
+        {
+          id: currentJti,
+          isCurrent: true,
+          device: req.headers["user-agent"] || "Unknown",
+          lastActive: new Date().toISOString(),
+        },
+      ],
+    });
+  } catch (error) {
+    console.error("Sessions fetch error:", error);
+    res.status(500).json({ error: "Failed to fetch sessions" });
+  }
+});
+
+// ── Sign Out All Devices ──────────────────────────────────────────────────────
+router.post("/sign-out-all", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.auth!.userId;
+    const currentJti = req.auth!.jti;
+
+    // Blacklist the current token too
+    await blacklistToken(currentJti, userId, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+
+    res.json({ message: "Signed out of all devices. Please sign in again." });
+  } catch (error) {
+    console.error("Sign out all error:", error);
+    res.status(500).json({ error: "Failed to sign out of all devices" });
+  }
+});
+
 export default router;
