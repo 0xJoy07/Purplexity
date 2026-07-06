@@ -82,7 +82,7 @@ function SourcesList({ message }: { message: Message }) {
 
   return (
     <div className="relative group mb-6">
-      <button 
+      <button
         onClick={() => {
           containerRef.current?.scrollBy({ left: -300, behavior: 'smooth' });
           setTimeout(updateArrows, 300);
@@ -95,8 +95,8 @@ function SourcesList({ message }: { message: Message }) {
       >
         <ChevronLeft className="h-4 w-4 text-foreground" />
       </button>
-      
-      <div 
+
+      <div
         ref={containerRef}
         onScroll={updateArrows}
         className="no-scrollbar flex gap-2 overflow-x-auto pb-1 scroll-smooth"
@@ -109,7 +109,7 @@ function SourcesList({ message }: { message: Message }) {
         ))}
       </div>
 
-      <button 
+      <button
         onClick={() => {
           containerRef.current?.scrollBy({ left: 300, behavior: 'smooth' });
           setTimeout(updateArrows, 300);
@@ -141,7 +141,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
   useEffect(() => {
     if (activeConversationId === lastLoadedIdRef.current) return;
     lastLoadedIdRef.current = activeConversationId;
-    
+
     setConversationId(activeConversationId);
     if (!activeConversationId) {
       setMessages([]);
@@ -336,7 +336,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
     isThinkingEnabled: boolean;
   }) => {
     console.log(`[handleSendMessage] message="${data.message}", files=${data.files.length}, pastedContent=${data.pastedContent.length}`);
-    
+
     // Extract actual File objects from attached files
     const actualFiles: File[] = data.files
       .map((f: any) => f.file)
@@ -357,9 +357,9 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
   const currentHour = new Date().getHours();
   let greeting = 'Good morning';
   if (currentHour >= 12 && currentHour < 18) {
-      greeting = 'Good afternoon';
+    greeting = 'Good afternoon';
   } else if (currentHour >= 18) {
-      greeting = 'Good evening';
+    greeting = 'Good evening';
   }
   const userName = user ? user.name.split(' ')[0] : 'there';
 
@@ -388,29 +388,29 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
           <motion.main key="welcome" className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-5 pb-10 pt-24" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -12 }}>
             <div className="my-auto w-full max-w-[800px] py-10">
               <div className="w-full mb-8 sm:mb-12 text-center animate-fade-in">
-                  <div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-                      <img src="/logo.png" alt="Logo" className="w-[42px] h-auto object-contain" />
-                  </div>
-                  <h1 className="text-3xl sm:text-4xl font-serif font-light text-foreground mb-3 tracking-tight">
-                      {greeting}, <span className="relative inline-block pb-2">
-                          {userName}
-                          <svg
-                              className="absolute w-[140%] h-[20px] -bottom-1 -left-[5%] text-accent"
-                              viewBox="0 0 140 24"
-                              fill="none"
-                              preserveAspectRatio="none"
-                              aria-hidden="true"
-                          >
-                              <path
-                                  d="M6 16 Q 70 24, 134 14"
-                                  stroke="currentColor"
-                                  strokeWidth="3"
-                                  strokeLinecap="round"
-                                  fill="none"
-                              />
-                          </svg>
-                      </span>
-                  </h1>
+                <div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+                  <img src="/logo.png" alt="Logo" className="w-[42px] h-auto object-contain" />
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-serif font-light text-foreground mb-3 tracking-tight">
+                  {greeting}, <span className="relative inline-block pb-2">
+                    {userName}
+                    <svg
+                      className="absolute w-[140%] h-[20px] -bottom-1 -left-[5%] text-accent"
+                      viewBox="0 0 140 24"
+                      fill="none"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M6 16 Q 70 24, 134 14"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        fill="none"
+                      />
+                    </svg>
+                  </span>
+                </h1>
               </div>
 
               <ClaudeChatInput onSendMessage={handleSendMessage} compact={false} />
@@ -491,12 +491,12 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
 
             <div className="border-t border-border bg-composer/95 px-4 pb-4 pt-3 backdrop-blur sm:px-8">
               <div className="mx-auto w-full max-w-[760px] space-y-2">
-                 <ClaudeChatInput onSendMessage={handleSendMessage} compact={true} />
-                 <div className="flex items-center gap-3">
-                   <TokenUsageIndicator compact className="flex-1" />
-                   <ContextTrimmedToast visible={showContextTrimmed} onDismiss={() => setShowContextTrimmed(false)} />
-                 </div>
-                 <QuotaExceededToast visible={quotaExceeded} resetTime={quotaResetTime} />
+                <ClaudeChatInput onSendMessage={handleSendMessage} compact={true} />
+                <div className="flex items-center gap-3">
+                  <TokenUsageIndicator compact className="flex-1" />
+                  <ContextTrimmedToast visible={showContextTrimmed} onDismiss={() => setShowContextTrimmed(false)} />
+                </div>
+                <QuotaExceededToast visible={quotaExceeded} resetTime={quotaResetTime} />
               </div>
             </div>
           </motion.main>

@@ -656,7 +656,7 @@ function SecuritySection() {
     if (!token) return;
     getActiveSessions(token)
       .then((data) => setSessions(data.activeSessions || []))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingSessions(false));
   }, [token]);
 
@@ -1122,8 +1122,8 @@ function SettingsPageInner() {
                         ? "bg-accent-soft text-accent shadow-sm"
                         : "text-text-muted hover:bg-surface-hover hover:text-foreground",
                       tab.id === "danger" &&
-                        !isActive &&
-                        "text-red-500/70 hover:text-red-500"
+                      !isActive &&
+                      "text-red-500/70 hover:text-red-500"
                     )}
                   >
                     <Icon
@@ -1159,8 +1159,8 @@ function SettingsPageInner() {
                     ? "bg-accent-soft text-accent"
                     : "text-text-muted hover:bg-surface-hover",
                   tab.id === "danger" &&
-                    !isActive &&
-                    "text-red-500/70"
+                  !isActive &&
+                  "text-red-500/70"
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />

@@ -39,6 +39,7 @@ import cors from "cors";
 import { signSession } from "./services/auth.service";
 import path from "path";
 import fs from "fs";
+
 import { createRequire } from "module";
 import analyzeRouter from "./routes/analyze.routes";
 import { analyzeContent } from "./services/contentAnalyzer.service";
@@ -55,13 +56,14 @@ const conversationUpload = multer({
 });
 
 const app = express();
-app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:3000",
-  credentials: true,
-}));
-app.use(express.json());
 
+// ── Core middleware (must be before any route handlers) ──
+app.use(cors({ origin: true, credentials: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+app.use(express.static(path.join(process.cwd(), "public")));
 app.use("/uploads", express.static(path.join(__dirname, "../../public/uploads")));
 app.use(analyzeRouter);
 app.use("/auth", authRoutes);
@@ -701,6 +703,12 @@ app.post("/users/cleanup", async (req: Request, res: Response) => {
     console.error("Error cleaning up guest users:", error);
     res.status(500).json({ error: "Failed to cleanup guest users" });
   }
+});
+
+// SPA catch-all – serve index.html for any unmatched routes
+// Must be AFTER all API routes so they aren't intercepted
+app.get("/{*path}", (_req, res) => {
+  res.sendFile(path.join(process.cwd(), "public", "index.html"));
 });
 
 // ============================================
