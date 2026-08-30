@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "bun run index.ts",
+    "postinstall": "bunx prisma generate",
     "db:generate": "bunx prisma generate",
     "db:push": "bunx prisma db push",
     "db:studio": "bunx prisma studio",

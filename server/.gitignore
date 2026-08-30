@@ -38,7 +38,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 fix-db-url.ts
 
 # Prisma generated client (rebuild with: bunx prisma generate)
-generated/
+# generated/ - committed to repo for deployment
 
 # Tesseract training data (downloaded at runtime)
 *.traineddata
@@ -47,4 +47,8 @@ generated/
 uploads/
 
 # Bun lockfile
-bun.lock
+# bun.lock - committed to repo for reproducible installs
+
+# Windows Prisma query engine binaries (not needed on Linux/Render)
+generated/query_engine-windows.dll.node
+generated/query_engine-windows.dll.node.tmp*
