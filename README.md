@@ -4,7 +4,7 @@ An AI-powered search engine that combines real-time web search with LLM reasonin
 
 <!-- PROJECT PREVIEW -->
 <p align="center">
-  <img src="./assets/preview.png" alt="Purplexity — AI Search Engine" width="800" />
+  <img src="https://github.com/user-attachments/assets/52912223-7735-432b-a547-5b63a6ddadfd" alt="Purplexity — AI Search Engine" width="800" />
 </p>
 
 <p align="center">
