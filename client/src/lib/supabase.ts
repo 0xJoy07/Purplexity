@@ -5,6 +5,6 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
 export const hasSupabaseConfig = Boolean(supabaseUrl && supabaseAnonKey);
 
-export const supabase: SupabaseClient | null = hasSupabaseConfig
+export const supabase: SupabaseClient | null = hasSupabaseConfig && supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
