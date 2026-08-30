@@ -126,9 +126,10 @@ export async function sendVerificationEmail(user: { id: string; email: string; n
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
   });
   const token = signVerification(user);
-  const url = `${process.env.CLIENT_URL || "http://localhost:3001"}/verify-email?token=${encodeURIComponent(token)}`;
+  if (!process.env.CLIENT_URL) throw new Error("CLIENT_URL environment variable is not set");
+  const url = `${process.env.CLIENT_URL}/verify-email?token=${encodeURIComponent(token)}`;
   await transporter.sendMail({
-    from: process.env.SMTP_FROM || "Purplexity <no-reply@localhost>",
+    from: process.env.SMTP_FROM || "Purplexity <no-reply@purplexity.app>",
     to: user.email,
     subject: "Verify your Purplexity account",
     text: `Welcome to Purplexity. Verify your email: ${url}`,

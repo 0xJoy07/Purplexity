@@ -22,7 +22,11 @@ const upload = multer({
 
 const router = Router();
 const cookieName = () => process.env.AUTH_COOKIE_NAME || "purplexity_session";
-const clientUrl = () => process.env.CLIENT_URL || "http://localhost:3000";
+const clientUrl = () => {
+  const url = process.env.CLIENT_URL;
+  if (!url) throw new Error("CLIENT_URL environment variable is not set");
+  return url;
+};
 
 // ── Register ──────────────────────────────────────────────────────────────────
 router.post("/register", async (req, res) => {
@@ -139,7 +143,7 @@ router.post("/forgot-password", async (req, res) => {
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || "Purplexity <no-reply@localhost>",
+      from: process.env.SMTP_FROM || "Purplexity <no-reply@purplexity.app>",
       to: user.email,
       subject: "Reset your Purplexity password",
       html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:32px"><h1>Reset your password</h1><p>Hi ${user.name}, click the button below to reset your password. This link expires in 30 minutes.</p><p><a href="${url}" style="display:inline-block;background:#168b86;color:#fff;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:700">Reset password</a></p><p style="color:#999;font-size:12px">If you didn't request this, you can safely ignore it.</p></div>`,
