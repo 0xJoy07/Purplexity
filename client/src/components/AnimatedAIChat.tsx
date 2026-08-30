@@ -287,10 +287,10 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
             </div>
             <div>${element.innerHTML}</div>
           `;
-          const opt = {
+          const opt: any = {
             margin: 10,
             filename: `purplexity-response-${message.id}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
+            image: { type: 'jpeg' as const, quality: 0.98 },
             html2canvas: { scale: 2 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
           };

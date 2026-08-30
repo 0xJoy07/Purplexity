@@ -506,8 +506,8 @@ function UsageSection() {
                     fontSize: 12,
                     boxShadow: "0 4px 12px rgba(0,0,0,.08)",
                   }}
-                  formatter={(value: number) => [
-                    `${value.toLocaleString()} tokens`,
+                  formatter={(value: any) => [
+                    `${Number(value || 0).toLocaleString()} tokens`,
                     "Usage",
                   ]}
                 />
