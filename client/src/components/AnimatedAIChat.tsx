@@ -33,8 +33,6 @@ import {
   sendMessage,
 } from "@/lib/api";
 import { MarkdownRenderer } from "./MarkdownRenderer";
-import { ResponseStream } from "./ui/response-stream";
-import { ClaudeChatInput } from "./ui/claude-style-chat-input";
 import { useAuth } from "@/lib/auth";
 import { TokenUsageIndicator, ContextTrimmedToast, QuotaExceededToast } from "./TokenUsageIndicator";
 import Link from "next/link";
@@ -153,7 +151,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
       try {
         let conversation;
         if (user && token) {
-          const res = await fetch(`${process.env.API_BASE}/conversations/${activeConversationId}`, {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/conversations/${activeConversationId}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           conversation = await res.json();
@@ -205,7 +203,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
 
       let currentId = conversationId;
       if (!currentId) {
-        const res = await fetch(`${process.env.API_BASE}/conversations`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/conversations`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -413,7 +411,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
                 </h1>
               </div>
 
-              <ClaudeChatInput onSendMessage={handleSendMessage} compact={false} />
+
 
               <div className="mt-3 space-y-2">
                 <TokenUsageIndicator />
@@ -452,7 +450,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
                     <SourcesList message={message} />
 
                     <div className="max-w-[720px]" id={`message-content-${message.id}`}>
-                      {message.id === newMessageId ? <ResponseStream textStream={message.content} mode="fade" speed={100} fadeDuration={600} onComplete={() => setNewMessageId(null)} /> : <MarkdownRenderer content={message.content} />}
+                      <MarkdownRenderer content={message.content} />
                     </div>
 
                     {message.id !== newMessageId && (
@@ -491,7 +489,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
 
             <div className="border-t border-border bg-composer/95 px-4 pb-4 pt-3 backdrop-blur sm:px-8">
               <div className="mx-auto w-full max-w-[760px] space-y-2">
-                <ClaudeChatInput onSendMessage={handleSendMessage} compact={true} />
+
                 <div className="flex items-center gap-3">
                   <TokenUsageIndicator compact className="flex-1" />
                   <ContextTrimmedToast visible={showContextTrimmed} onDismiss={() => setShowContextTrimmed(false)} />
