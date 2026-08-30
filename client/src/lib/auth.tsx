@@ -107,8 +107,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     const initAuth = async () => {
+      if (!supabase) {
+        if (mounted) await refreshUser();
+        return;
+      }
+
+      const supabaseClient = supabase;
+
       // 1. Check if Supabase has a session (i.e., user just came back from OAuth)
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabaseClient.auth.getSession();
       if (session?.user && mounted) {
         const meta = session.user.user_metadata || {};
         await syncOAuthUser({
@@ -118,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           provider: session.user.app_metadata?.provider || 'oauth',
         });
         // Sign out of Supabase — we only use it for the OAuth dance, our JWT handles everything else
-        await supabase.auth.signOut();
+        await supabaseClient.auth.signOut();
         if (mounted) setIsLoading(false);
         return;
       }
@@ -129,8 +136,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initAuth();
 
+    if (!supabase) {
+      return () => {
+        mounted = false;
+      };
+    }
+
+    const supabaseClient = supabase;
+
     // Listen for Supabase auth state changes (e.g., OAuth redirect back)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user && mounted) {
         const meta = session.user.user_metadata || {};
         await syncOAuthUser({
@@ -139,7 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           avatar: meta.avatar_url || meta.picture || '',
           provider: session.user.app_metadata?.provider || 'oauth',
         });
-        await supabase.auth.signOut();
+        await supabaseClient.auth.signOut();
         if (mounted) setIsLoading(false);
       }
     });
@@ -221,6 +236,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── OAuth via Supabase ──────────────────────────────────────────────────────
   const loginWithGoogle = () => {
+    if (!supabase) {
+      console.error('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+      return;
+    }
     supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin },
@@ -228,6 +247,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginWithGithub = () => {
+    if (!supabase) {
+      console.error('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+      return;
+    }
     supabase.auth.signInWithOAuth({
       provider: 'github',
       options: { redirectTo: window.location.origin },
