@@ -133,6 +133,10 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
   const [showContextTrimmed, setShowContextTrimmed] = useState(false);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [quotaResetTime, setQuotaResetTime] = useState("");
+  const [inputValue, setInputValue] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastLoadedIdRef = useRef<string | null>(null);
 
@@ -319,8 +323,26 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      submitQuery();
+      handleSendMessage({ message: inputValue, files: attachedFiles.map(f => ({ file: f })), pastedContent: [], model: "", isThinkingEnabled: false });
     }
+  };
+
+  // Auto-resize textarea
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputValue(e.target.value);
+    const el = e.target;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setAttachedFiles(prev => [...prev, ...files]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
 
@@ -333,20 +355,25 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
     model: string;
     isThinkingEnabled: boolean;
   }) => {
-    console.log(`[handleSendMessage] message="${data.message}", files=${data.files.length}, pastedContent=${data.pastedContent.length}`);
+    if (!data.message.trim() && data.files.length === 0) return;
 
     // Extract actual File objects from attached files
     const actualFiles: File[] = data.files
       .map((f: any) => f.file)
       .filter((f: unknown): f is File => f instanceof File);
 
-    console.log(`[handleSendMessage] Extracted ${actualFiles.length} File objects:`, actualFiles.map(f => f.name));
-
     // If pasted content is present, prepend it to the query as context
     let fullQuery = data.message;
     if (data.pastedContent.length > 0) {
       const pastedTexts = data.pastedContent.map((p: any) => p.content).join("\n\n---\n\n");
       fullQuery += `\n\n[Pasted content]\n${pastedTexts}`;
+    }
+
+    // Clear input immediately
+    setInputValue("");
+    setAttachedFiles([]);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
     }
 
     submitQuery(fullQuery, actualFiles);
@@ -360,6 +387,57 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
     greeting = 'Good evening';
   }
   const userName = user ? user.name.split(' ')[0] : 'there';
+
+  const canSend = inputValue.trim().length > 0 || attachedFiles.length > 0;
+
+  const inputBox = (
+    <div className="mx-auto w-full max-w-[760px]">
+      {/* File previews */}
+      {attachedFiles.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {attachedFiles.map((file, i) => (
+            <div key={i} className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-text-muted">
+              <Paperclip className="h-3 w-3 shrink-0" />
+              <span className="max-w-[120px] truncate">{file.name}</span>
+              <button type="button" onClick={() => removeFile(i)} className="ml-1 text-text-subtle hover:text-foreground transition-colors"><X className="h-3 w-3" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className={cn("flex items-end gap-2 rounded-2xl border border-border bg-composer px-4 py-3 shadow-sm transition-shadow focus-within:shadow-md focus-within:border-accent/40", quotaExceeded && "opacity-60 pointer-events-none")}>
+        {/* Attach button */}
+        <button type="button" onClick={() => fileInputRef.current?.click()} className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-subtle transition-colors hover:bg-surface-hover hover:text-foreground" aria-label="Attach file">
+          <Paperclip className="h-4 w-4" />
+        </button>
+        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.txt,.md,.csv,.json,.rtf" />
+
+        {/* Textarea */}
+        <textarea
+          ref={textareaRef}
+          rows={1}
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask anything…"
+          className="max-h-[200px] min-h-[36px] flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-text-subtle focus:outline-none"
+          disabled={isTyping || quotaExceeded}
+        />
+
+        {/* Send button */}
+        <button
+          type="button"
+          onClick={() => handleSendMessage({ message: inputValue, files: attachedFiles.map(f => ({ file: f })), pastedContent: [], model: "", isThinkingEnabled: false })}
+          disabled={!canSend || isTyping}
+          className={cn("mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all", canSend && !isTyping ? "bg-accent text-white shadow-sm hover:bg-accent/90" : "bg-surface text-text-subtle cursor-not-allowed")}
+          aria-label="Send"
+        >
+          {isTyping ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
+        </button>
+      </div>
+      <p className="mt-2 text-center text-[11px] text-text-subtle">Purplexity may make mistakes. Check important sources.</p>
+    </div>
+  );
 
 
   return (
@@ -427,8 +505,12 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
                   </motion.button>
                 ))}
               </div>
+
+              {/* Input box on welcome screen */}
+              <div className="mt-6">
+                {inputBox}
+              </div>
             </div>
-            <p className="text-center text-[11px] text-text-subtle">Purplexity may make mistakes. Check important sources.</p>
           </motion.main>
         ) : (
           <motion.main key="thread" className="flex min-h-0 flex-1 flex-col" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -489,12 +571,12 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
 
             <div className="border-t border-border bg-composer/95 px-4 pb-4 pt-3 backdrop-blur sm:px-8">
               <div className="mx-auto w-full max-w-[760px] space-y-2">
-
                 <div className="flex items-center gap-3">
                   <TokenUsageIndicator compact className="flex-1" />
                   <ContextTrimmedToast visible={showContextTrimmed} onDismiss={() => setShowContextTrimmed(false)} />
                 </div>
                 <QuotaExceededToast visible={quotaExceeded} resetTime={quotaResetTime} />
+                {inputBox}
               </div>
             </div>
           </motion.main>
