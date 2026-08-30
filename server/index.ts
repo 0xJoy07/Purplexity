@@ -45,17 +45,22 @@ import analyzeRouter from "./routes/analyze.routes";
 import { analyzeContent } from "./services/contentAnalyzer.service";
 import { checkCache, saveToCache } from "./services/semanticCache.service";
 
+const PROJECT_ROOT = process.cwd();
+const UPLOADS_DIR = path.join(PROJECT_ROOT, "uploads");
+
 // CJS require for multer (ESM compat with Bun)
 const _require = createRequire(import.meta.url);
 const multer = _require("multer");
 
 // Configure multer for conversation file uploads
 const conversationUpload = multer({
-  dest: path.join(import.meta.dir, "../uploads"),
+  dest: UPLOADS_DIR,
   limits: { fileSize: parseInt(process.env.MAX_UPLOAD_SIZE || "10485760") },
 });
 
 const app = express();
+
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // ── Core middleware (must be before any route handlers) ──
 app.use(cors({ origin: true, credentials: true }));
@@ -64,7 +69,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.use(express.static(path.join(process.cwd(), "public")));
-app.use("/uploads", express.static(path.join(__dirname, "../../public/uploads")));
+app.use("/uploads", express.static(UPLOADS_DIR));
 app.use(analyzeRouter);
 app.use("/auth", authRoutes);
 app.use("/conversations", requireAuth);

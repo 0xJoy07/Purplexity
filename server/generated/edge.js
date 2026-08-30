@@ -235,7 +235,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "D:\\PROJECT FOLDERS\\Projects Phase 3\\Purplexity\\server\\generated",
+      "value": "/media/gojo-joy/VAULT/PROJECT FOLDERS/Projects Phase 3/Purplexity/server/generated",
       "fromEnvVar": null
     },
     "config": {
@@ -244,14 +244,14 @@ const config = {
     "binaryTargets": [
       {
         "fromEnvVar": null,
-        "value": "windows",
+        "value": "debian-openssl-3.0.x",
         "native": true
       }
     ],
     "previewFeatures": [
       "postgresqlExtensions"
     ],
-    "sourceFilePath": "D:\\PROJECT FOLDERS\\Projects Phase 3\\Purplexity\\server\\prisma\\schema.prisma",
+    "sourceFilePath": "/media/gojo-joy/VAULT/PROJECT FOLDERS/Projects Phase 3/Purplexity/server/prisma/schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
@@ -265,6 +265,7 @@ const config = {
     "db"
   ],
   "activeProvider": "postgresql",
+  "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {

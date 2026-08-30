@@ -1,23 +1,24 @@
-import { pipeline, env } from '@xenova/transformers';
-
-// Skip local model check since we'll download on first run
-env.allowLocalModels = false;
-
-// We use a lightweight local embedding model. all-MiniLM-L6-v2 produces a 384-dimensional vector.
-const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
+// Lazy-load transformers so startup does not depend on the native sharp package.
+const MODEL_NAME = "Xenova/all-MiniLM-L6-v2";
 
 let extractor: any = null;
+let transformersModulePromise: Promise<any> | null = null;
+
+async function loadTransformers() {
+  transformersModulePromise ??= import("@xenova/transformers");
+  return transformersModulePromise;
+}
 
 export async function getEmbedding(text: string): Promise<number[]> {
   if (!extractor) {
-    console.log(`Loading local embedding model: ${MODEL_NAME}...`);
-    // @ts-ignore
-    extractor = await pipeline('feature-extraction', MODEL_NAME);
+    console.log("Loading local embedding model: " + MODEL_NAME + "...");
+    const { pipeline, env } = await loadTransformers();
+    env.allowLocalModels = false;
+    extractor = await pipeline("feature-extraction", MODEL_NAME);
   }
 
-  // @ts-ignore
   const output = await extractor(text, {
-    pooling: 'mean',
+    pooling: "mean",
     normalize: true,
   });
 
