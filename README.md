@@ -1,6 +1,8 @@
-# Purplexity
+<p align="center">
+<img width="1536" height="330" alt="ChatGPT Image Jul 1, 2026, 07_53_55 PM" src="https://github.com/user-attachments/assets/26fadc52-438b-42ef-97ad-a31d5d6b0215" />
+</p>
 
-An AI-powered search engine that combines real-time web search with LLM reasoning — think Perplexity, but open-source and self-hosted.
+<h2>An AI-powered search engine that combines real-time web search with LLM reasoning — think Perplexity, but open-source and self-hosted.</h2>
 
 <!-- PROJECT PREVIEW -->
 <p align="center">
