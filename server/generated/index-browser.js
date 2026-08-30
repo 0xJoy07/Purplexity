@@ -146,6 +146,17 @@ exports.Prisma.RevokedTokenScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.SessionScalarFieldEnum = {
+  id: 'id',
+  jti: 'jti',
+  userId: 'userId',
+  device: 'device',
+  ipAddress: 'ipAddress',
+  lastActive: 'lastActive',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.ConversationScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -245,6 +256,7 @@ exports.MessageRole = exports.$Enums.MessageRole = {
 exports.Prisma.ModelName = {
   User: 'User',
   RevokedToken: 'RevokedToken',
+  Session: 'Session',
   Conversation: 'Conversation',
   Message: 'Message',
   Query: 'Query',

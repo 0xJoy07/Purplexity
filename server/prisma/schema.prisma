@@ -35,6 +35,7 @@ model User {
   tokenUsage    TokenUsage[]
   revokedTokens RevokedToken[]
   files         File[]
+  sessions      Session[]
   
   @@map("users")
 }
@@ -57,6 +58,24 @@ model RevokedToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([expiresAt])
   @@map("revoked_tokens")
+}
+
+// Session model - tracks active login sessions across devices
+model Session {
+  id         String   @id @default(uuid())
+  jti        String   @unique
+  userId     String   @map("user_id")
+  device     String   @default("Unknown")
+  ipAddress  String?  @map("ip_address")
+  lastActive DateTime @default(now()) @map("last_active")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
 }
 
 // Conversation model - represents a chat session

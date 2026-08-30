@@ -4,7 +4,7 @@ import { prisma } from "../config/db.config";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { randomUUID } from "crypto";
-import { blacklistToken, comparePassword, hashPassword, publicUser, sendVerificationEmail, signSession, verifyToken } from "../services/auth.service";
+import { blacklistToken, comparePassword, createSession, deleteSessionByJti, hashPassword, publicUser, sendVerificationEmail, signSession, verifyToken } from "../services/auth.service";
 import { requireAuth, type AuthRequest } from "../middleware/auth.middleware";
 import { createRequire } from "module";
 import path from "path";
@@ -42,7 +42,9 @@ router.post("/login", async (req, res) => {
   const user = await prisma.user.findUnique({ where: { email: String(req.body.email || "").trim().toLowerCase() } });
   if (!user?.passwordHash || !(await comparePassword(String(req.body.password || ""), user.passwordHash))) return void res.status(401).json({ error: "Incorrect email or password" });
   if (!user.emailVerified) return void res.status(403).json({ error: "Verify your email before signing in" });
-  const token = signSession(user);
+  const { token, jti, expiresAt } = signSession(user);
+  // Persist session (fire-and-forget friendly — createSession has internal try/catch)
+  await createSession(jti, user.id, expiresAt, req.headers["user-agent"], req.ip);
   res.json({ token, user: publicUser(user) });
 });
 
@@ -52,7 +54,8 @@ router.get("/verify-email", async (req, res) => {
     const payload = verifyToken(String(req.query.token || ""));
     if (payload.type !== "verify") throw new Error();
     const user = await prisma.user.update({ where: { id: payload.sub }, data: { emailVerified: true } });
-    const token = signSession(user);
+    const { token, jti, expiresAt } = signSession(user);
+    await createSession(jti, user.id, expiresAt, req.headers["user-agent"], req.ip);
     res.json({ message: "Email verified", token, user: publicUser(user) });
   } catch { res.status(400).json({ error: "Verification link is invalid or expired" }); }
 });
@@ -68,7 +71,12 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
 router.post("/logout", requireAuth, async (req: AuthRequest, res) => {
   const token = req.cookies?.[cookieName()] || req.headers.authorization?.slice(7);
   if (token) {
-    try { await blacklistToken(verifyToken(token)); } catch {}
+    try {
+      const payload = verifyToken(token);
+      await blacklistToken(payload);
+      // Delete session row
+      await deleteSessionByJti(payload.jti);
+    } catch {}
   }
   res.clearCookie(cookieName(), { path: "/" });
   res.json({ message: "Signed out" });
@@ -103,7 +111,8 @@ router.post("/oauth-sync", async (req, res) => {
       },
     });
 
-    const token = signSession(user);
+    const { token, jti, expiresAt } = signSession(user);
+    await createSession(jti, user.id, expiresAt, req.headers["user-agent"], req.ip);
     res.json({ token, user: publicUser(user) });
   } catch (error) {
     console.error("OAuth sync error:", error);
@@ -276,7 +285,7 @@ router.delete("/account", requireAuth, async (req: AuthRequest, res) => {
       return void res.status(400).json({ error: "Please type your email address to confirm account deletion" });
     }
 
-    // Cascade delete handles conversations, messages, queries, tokenUsage, files, revokedTokens
+    // Cascade delete handles conversations, messages, queries, tokenUsage, files, revokedTokens, sessions
     await prisma.user.delete({ where: { id: userId } });
 
     res.json({ message: "Account deleted successfully" });
@@ -307,54 +316,6 @@ router.delete("/search-history", requireAuth, async (req: AuthRequest, res) => {
   } catch (error) {
     console.error("Clear history error:", error);
     res.status(500).json({ error: "Failed to clear search history" });
-  }
-});
-
-// ── Active Sessions ───────────────────────────────────────────────────────────
-router.get("/sessions", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const userId = req.auth!.userId;
-    const currentJti = req.auth!.jti;
-
-    // Get non-revoked tokens (active sessions). We store revoked ones, so
-    // we list revoked-token records to identify what's been invalidated.
-    const revokedTokens = await prisma.revokedToken.findMany({
-      where: { userId },
-      select: { jti: true },
-    });
-    const revokedSet = new Set(revokedTokens.map((t) => t.jti));
-
-    // In a real app we'd store session metadata. For now, return minimal info.
-    res.json({
-      currentSessionId: currentJti,
-      activeSessions: [
-        {
-          id: currentJti,
-          isCurrent: true,
-          device: req.headers["user-agent"] || "Unknown",
-          lastActive: new Date().toISOString(),
-        },
-      ],
-    });
-  } catch (error) {
-    console.error("Sessions fetch error:", error);
-    res.status(500).json({ error: "Failed to fetch sessions" });
-  }
-});
-
-// ── Sign Out All Devices ──────────────────────────────────────────────────────
-router.post("/sign-out-all", requireAuth, async (req: AuthRequest, res) => {
-  try {
-    const userId = req.auth!.userId;
-    const currentJti = req.auth!.jti;
-
-    // Blacklist the current token too
-    await blacklistToken(currentJti, userId, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
-
-    res.json({ message: "Signed out of all devices. Please sign in again." });
-  } catch (error) {
-    console.error("Sign out all error:", error);
-    res.status(500).json({ error: "Failed to sign out of all devices" });
   }
 });
 

@@ -34,9 +34,10 @@ import {
   cleanupExpiredGuests,
 } from "./services/guest.service";
 import authRoutes from "./routes/auth.routes";
+import sessionRoutes from "./routes/session.routes";
 import { requireAuth } from "./middleware/auth.middleware";
 import cors from "cors";
-import { signSession } from "./services/auth.service";
+import { signSession, pruneExpiredSessions } from "./services/auth.service";
 import path from "path";
 import fs from "fs";
 
@@ -72,6 +73,7 @@ app.use(express.static(path.join(process.cwd(), "public")));
 app.use("/uploads", express.static(UPLOADS_DIR));
 app.use(analyzeRouter);
 app.use("/auth", authRoutes);
+app.use("/auth/sessions", sessionRoutes);
 app.use("/conversations", requireAuth);
 app.use("/tokens", requireAuth);
 
@@ -642,7 +644,7 @@ app.post("/users/guest", async (req: Request, res: Response) => {
   try {
     const { dailyTokenLimit, expiresInHours } = req.body;
     const guest = await createGuestUser({ dailyTokenLimit, expiresInHours });
-    const token = signSession({ id: guest.userId, email: guest.email });
+    const { token } = signSession({ id: guest.userId, email: guest.email });
     res.json({ ...guest, token });
   } catch (error) {
     console.error("Error creating guest user:", error);
@@ -724,6 +726,10 @@ const PORT = process.env.PORT;
 
 // Prevent Bun from exiting prematurely due to Prisma's query engine dropping event loop handles
 setInterval(() => {}, 1 << 30);
+
+// Startup: prune expired sessions, then repeat every 24 hours
+pruneExpiredSessions().then(() => console.log("🧹 Expired sessions pruned on startup")).catch(() => {});
+setInterval(() => { pruneExpiredSessions().catch(() => {}); }, 24 * 60 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`🚀 Purplexity server running on http://localhost:${PORT}`);

@@ -394,7 +394,7 @@ export async function getActiveSessions(token: string) {
 }
 
 export async function signOutAllDevices(token: string) {
-  const res = await fetch(`${API_BASE}/auth/sign-out-all`, {
+  const res = await fetch(`${API_BASE}/auth/sessions/sign-out-all`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,

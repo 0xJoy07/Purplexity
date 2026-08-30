@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { isBlacklisted, verifyToken } from "../services/auth.service";
+import { prisma } from "../config/db.config";
 
 export type AuthRequest = Request & { auth?: { userId: string; email: string; jti: string } };
 
@@ -14,8 +15,11 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     req.auth = { userId: payload.sub, email: payload.email, jti: payload.jti };
     req.body ||= {};
     req.body.userId = payload.sub;
+    // Fire-and-forget: update session lastActive timestamp (no await — zero added latency)
+    prisma.session.updateMany({ where: { jti: payload.jti }, data: { lastActive: new Date() } }).catch(() => {});
     next();
   } catch {
     res.status(401).json({ error: "Invalid or expired session" });
   }
 }
+
