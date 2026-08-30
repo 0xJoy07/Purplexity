@@ -36,3 +36,15 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 
 fix-db-url.ts
+
+# Prisma generated client (rebuild with: bunx prisma generate)
+generated/
+
+# Tesseract training data (downloaded at runtime)
+*.traineddata
+
+# Uploads
+uploads/
+
+# Bun lockfile
+bun.lock

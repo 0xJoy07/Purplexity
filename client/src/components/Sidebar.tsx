@@ -32,7 +32,7 @@ export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConver
     try {
       setIsLoading(true);
       if (user && token) {
-        const res = await fetch(`http://localhost:5000/conversations/user/${user.id}`, {
+        const res = await fetch(`process.env.API_BASE/conversations/user/${user.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const items = await res.json();
@@ -58,7 +58,7 @@ export function Sidebar({ isOpen, onToggle, activeConversationId, onSelectConver
     try {
       setDeletingId(conversationId);
       if (user && token) {
-        await fetch(`http://localhost:5000/conversations/${conversationId}`, {
+        await fetch(`${process.env.API_BASE}/conversations/${conversationId}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
         });

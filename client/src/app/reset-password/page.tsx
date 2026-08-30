@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = process.env.API_BASE;
 
 export default function ResetPasswordPage() {
   const containerRef = useRef<HTMLDivElement>(null);

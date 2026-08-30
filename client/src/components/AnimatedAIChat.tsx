@@ -153,7 +153,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
       try {
         let conversation;
         if (user && token) {
-          const res = await fetch(`http://localhost:5000/conversations/${activeConversationId}`, {
+          const res = await fetch(`${process.env.API_BASE}/conversations/${activeConversationId}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           conversation = await res.json();
@@ -205,7 +205,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
 
       let currentId = conversationId;
       if (!currentId) {
-        const res = await fetch('http://localhost:5000/conversations', {
+        const res = await fetch(`${process.env.API_BASE}/conversations`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -217,7 +217,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
         currentId = conversation.id;
         setConversationId(currentId);
         lastLoadedIdRef.current = currentId;
-        onConversationCreated(currentId);
+        if (currentId) onConversationCreated(currentId);
       }
       setMessages((current) => [...current, optimistic]);
       const response = await sendMessage(

@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { supabase } from './supabase';
 import { getTokenUsage, type TokenUsageResponse } from './api';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = process.env.API_BASE;
 
 export interface AuthUser {
   id: string;

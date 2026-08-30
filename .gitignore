@@ -1,0 +1,28 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Next.js
+.next/
+
+# Build output
+dist/
+out/
+
+# Logs
+*.log
+
+# Uploads
+uploads/
