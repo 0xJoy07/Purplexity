@@ -435,7 +435,6 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
           {isTyping ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
         </button>
       </div>
-      <p className="mt-2 text-center text-[11px] text-text-subtle">Purplexity may make mistakes. Check important sources.</p>
     </div>
   );
 
@@ -497,6 +496,11 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
                 <QuotaExceededToast visible={quotaExceeded} resetTime={quotaResetTime} />
               </div>
 
+              {/* Input box — above suggestion cards, matching original layout */}
+              <div className="mt-6">
+                {inputBox}
+              </div>
+
               <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {suggestions.map(({ icon: Icon, eyebrow, label, query }, index) => (
                   <motion.button key={label} type="button" onClick={() => submitQuery(query)} className="group flex min-h-[74px] items-start gap-3 rounded-xl border border-transparent px-3.5 py-3 text-left transition-colors hover:border-border hover:bg-surface" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 + index * 0.05 }}>
@@ -506,10 +510,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
                 ))}
               </div>
 
-              {/* Input box on welcome screen */}
-              <div className="mt-6">
-                {inputBox}
-              </div>
+              <p className="mt-4 text-center text-[11px] text-text-subtle">Purplexity may make mistakes. Check important sources.</p>
             </div>
           </motion.main>
         ) : (
@@ -577,6 +578,7 @@ export function AnimatedAIChat({ activeConversationId, onConversationCreated, si
                 </div>
                 <QuotaExceededToast visible={quotaExceeded} resetTime={quotaResetTime} />
                 {inputBox}
+                <p className="mt-2 text-center text-[11px] text-text-subtle">Purplexity may make mistakes. Check important sources.</p>
               </div>
             </div>
           </motion.main>
